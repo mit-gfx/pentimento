@@ -10,6 +10,7 @@ var LectureController = function() {
     var visualsController = null;
     var audioController = null;
     var retimerController = null;
+    var recordingController = null;
     
     // State for pen parameters
     this.pressure = false;
@@ -72,6 +73,7 @@ var LectureController = function() {
         visualsController = new VisualsController(lectureModel.getVisualsModel(), lectureModel.getRetimerModel());
         audioController = new AudioController(lectureModel.getAudioModel());
         retimerController = new RetimerController(lectureModel.getRetimerModel(), visualsController, audioController);
+        recordingController = new RecordingController(visualsController, audioController, retimerController, timeController, undoManager);
 
         // Setup input
         loadInputHandlers();
@@ -315,7 +317,7 @@ var LectureController = function() {
 
     // Returns true if a recording is in progress
     this.isRecording = function() {
-        return (timeController.isTiming() && !self.isPlaying());
+        return recordingController ? recordingController.isRecording() : false;
     };
 
     // Returns true if a playback is in progress
@@ -323,73 +325,18 @@ var LectureController = function() {
         return (timeController.isTiming() && playbackEndTime >= 0 && playbackEndTimeout);
     };
 
-    // Start recording and notify other controllers
-    // Returns true if it succeeds
-    this.startRecording = function() {
-
-	// Start the undo hierarchy so that an undo after recording ends will
-	// undo the entire recording
-	undoManager.startHierarchy("recording");
-
-	// Start the timing and exit if it fails
-        if (!timeController.startTiming()) {
-	    undoManager.endHierarchy("recording");
-            return false;
-        };
-
-        var beginTime = timeController.getBeginTime();
-
-        // Notify controllers depending on the recording types 
-        if (self.recordingTypeIsVisuals()) {  // visuals
-            visualsController.startRecording(beginTime);
-        };
-        if (self.recordingTypeIsAudio()) {  // audio
-            audioController.startRecording(beginTime);
-        };
-        retimerController.beginRecording(beginTime);
-
-        // Update the UI buttons
-        updateButtons();
-
-        return true;
+    // Start recording; return true if it succeeds
+    var startRecording = function() {
+        return recordingController.startRecording(
+            self.recordingTypeIsVisuals(),
+            self.recordingTypeIsAudio(),
+            updateButtons
+        );
     };
 
-    // Stop recording and notify other controllers
-    // Returns true if it succeeds
-    this.stopRecording = function() {
-
-        // Only stop if we are currently recording
-        if (!self.isRecording()) {
-            return false;
-        };
-
-	undoManager.addToStartMode("recording");
-
-        // Stop the timing and exit if it fails
-        if (!timeController.stopTiming()) {
-	    undoManager.addToStartMode(false);
-            return false;
-        };
-
-        var endTime = timeController.getEndTime();
-
-        // Notify controllers depending on the recording types 
-        if (self.recordingTypeIsVisuals()) {  // visuals
-            visualsController.stopRecording(endTime);
-        };
-        if (self.recordingTypeIsAudio()) {  // audio
-            audioController.stopRecording(endTime);
-        };
-        retimerController.endRecording(endTime);
-
-	undoManager.addToStartMode(false);
-        // End the undo hierarchy so that an undo will undo the entire recording
-        undoManager.endHierarchy("recording");
-
-        // Update the UI buttons
-        updateButtons();
-
-        return true;
+    // Stop recording; return true if it succeeds
+    var stopRecording = function() {
+        return recordingController.stopRecording(updateButtons);
     };
 
     // Start playback and and notify other controllers
@@ -415,7 +362,7 @@ var LectureController = function() {
         console.log('playback begin time: ' + beginTime);
         console.log('playback end time: ' + playbackEndTime);
 
-        // Set the timeout to stop the recording
+        // Set the timeout to stop playback
         playbackEndTimeout = setTimeout(self.stopPlayback, playbackEndTime - beginTime);
 
         // Notify controllers
@@ -517,10 +464,10 @@ var LectureController = function() {
         };
 
         // Start recording button handler
-        $('#'+startRecordButtonID).click(self.startRecording);
+        $('#'+startRecordButtonID).click(startRecording);
 
         // Stop recording button handler
-        $('#'+stopRecordButtonID).click(self.stopRecording);
+        $('#'+stopRecordButtonID).click(stopRecording);
 
         // Start playback button handler
         $('#'+startPlaybackButtonID).click(self.startPlayback);
@@ -567,6 +514,8 @@ var LectureController = function() {
             $('#'+startRecordButtonID).removeClass(hiddenClass);
             $('#'+stopRecordButtonID).addClass(hiddenClass);
         };
+
+        // Hide/unhide the playback start/stop buttons
         if (self.isPlaying()) {
             $('#'+startPlaybackButtonID).addClass(hiddenClass);
             $('#'+stopPlaybackButtonID).removeClass(hiddenClass);
@@ -574,8 +523,6 @@ var LectureController = function() {
             $('#'+startPlaybackButtonID).removeClass(hiddenClass);
             $('#'+stopPlaybackButtonID).addClass(hiddenClass);
         };
-
-        // Hide/unhide the playback start/stop buttons
 
         // Enable or disable the undo/redo buttons
         if (undoManager.canUndo() !== false) {
