@@ -13,18 +13,76 @@ var TimeController = function() {
     var self = this;
 
     // Keeps track of the current lecture time
-    var currentTime = 0;
+    var currentTime = function() {
+	var value = 0;
+	return {
+	    set: function(new_value, notify_listeners) {
+		var old_value = value;
+		value = new_value;
+
+		// Notify callbacks
+		if (notify_listeners) {
+		    for (var i = 0; i < updateTimeCallbacks.length; i++) {
+			updateTimeCallbacks[i](value);
+		    };
+		}
+	    },
+	    get: function() { return value; }
+	};
+    }();
 
     // Keeps track of the last UTC global time to calculate time passed when the timer is progressing.
     // When the value is not -1, it indicates that we are currently timing.
-    var lastGlobalTime = -1;
+    var lastGlobalTime = function() {
+	var value = -1;
+	return {
+	    set: function(new_value) {
+		var old_value = value;
+		value = new_value;
+	    },
+	    get: function() { return value; }
+	};
+    }();
 
     // When the previous or current timer began/ended (lecture time)
-    var beginTime = -1;  
-    var endTime = -1;
+    var beginTime = function() {
+	var value = -1;
+	return {
+	    set: function(new_value) {
+		var old_value = value;
+		value = new_value;
+	    },
+	    get: function() { return value; }
+	};
+    }();
+    var endTime = function() {
+	var value = -1;
+	return {
+	    set: function(new_value) {
+		var old_value = value;
+		value = new_value;
+	    },
+	    get: function() { return value; }
+	};
+    }();
 
     // Keep track of the interval timer for time updates
-    var updateInterval = null;
+    var updateInterval = function() {
+	var func = null
+	var interval_time = null;
+	var interval_id = null;
+	return {
+	    set: function(f, t) {
+		var old_func = func;
+		var old_interval_time = interval_time;
+		func = f;
+		interval_time = t;
+		clearInterval(interval_id);
+		interval_id = setInterval(func, interval_time);
+	    },
+	    get: function() { return value; }
+	};
+    }();
 
     // Interval after which to notify listeners of a time update during timer progression
     var UPDATE_INTERVAL = 50;  // milliseconds
@@ -32,7 +90,6 @@ var TimeController = function() {
     // Callback functions to notify listeners.
     // Functions should have one argument: currentTime (milliseconds)
     var updateTimeCallbacks = [];  // When the current time changes, including when timing ends
-    
 
     ////////////////////////////////////////////////////////
     // Methods
@@ -51,17 +108,15 @@ var TimeController = function() {
         if (self.isTiming()) {
             // Calculate the elapsed time since the last update
             var gt = globalTime();
-            var timeElapsed = gt - lastGlobalTime;
-            lastGlobalTime = gt;
+            var timeElapsed = gt - lastGlobalTime.get();
+            lastGlobalTime.set(gt);
 
             // Update the time without notifying callbacks
-            // This is the only time current time is set without using the updateTime method
             // The reasoning is that if there are too many calls to getTime, we could be 
             // overloaded with too many callbacks to updateTime listeners.
-            currentTime += timeElapsed;
+            currentTime.set(currentTime.get() + timeElapsed, false);
         };
-
-        return currentTime;
+        return currentTime.get();
     };
 
     // Manually update the current time and notify any callbacks
@@ -76,13 +131,8 @@ var TimeController = function() {
             return;
         };
 
-        // Updatet the current time with the new time
-        currentTime = Math.round(time);
-
-        // Notify callbacks
-        for (var i = 0; i < updateTimeCallbacks.length; i++) {
-            updateTimeCallbacks[i](currentTime);
-        };
+        // Update the current time with the new time
+        currentTime.set(Math.round(time), true);
     };
 
     // Use UTC time to keep track of timing when it is in progress
@@ -92,7 +142,7 @@ var TimeController = function() {
 
     // Returns true if a timing is in progress
     this.isTiming = function() {
-        return (lastGlobalTime !== -1);
+        return (lastGlobalTime.get() !== -1);
     };
 
     // Start progressing the time
@@ -105,24 +155,19 @@ var TimeController = function() {
         };
 
         // Keep track of the global time to know how much time has elapsed
-        lastGlobalTime = globalTime();
+        lastGlobalTime.set(globalTime());
 
         // Keep track of the time when timing began
-        beginTime = currentTime;
+	beginTime.set(currentTime.get());
 
         // After a set interval, update the current time and notify any listeners of the time update
-        updateInterval = setInterval(function() {
+        updateInterval.set(function() {
 
             // Calculate the elapsed time since the last update and update the current time
             var gt = globalTime();
-            var timeElapsed = gt - lastGlobalTime;
-            lastGlobalTime = gt;
-            currentTime += timeElapsed;
-
-            // Notify callbacks for time update
-            for (var i = 0; i < updateTimeCallbacks.length; i++) {
-                updateTimeCallbacks[i](currentTime);
-            };
+            var timeElapsed = gt - lastGlobalTime.get();
+            lastGlobalTime.set(gt);
+            currentTime.set(currentTime.get() + timeElapsed, true);
 
         }, UPDATE_INTERVAL);
 
@@ -139,23 +184,17 @@ var TimeController = function() {
         };
 
         // Clear the interval used for timing updates
-        clearInterval(updateInterval);
-        updateInterval = null;
+        updateInterval.set(null);
 
         // Calculate the new current time
-        var timeElapsed = globalTime() - lastGlobalTime;
-        currentTime += timeElapsed;
-
-        // Notify callbacks for time update
-        for (var i = 0; i < updateTimeCallbacks.length; i++) {
-            updateTimeCallbacks[i](currentTime);
-        };
+        var timeElapsed = globalTime() - lastGlobalTime.get();
+        currentTime.set(currentTime.get() + timeElapsed, true);
 
         // Record when the timing ended
-        endTime = currentTime;
+        endTime.set(currentTime.get());
 
         // Reset the global time
-        lastGlobalTime = -1;        
+        lastGlobalTime.set(-1);
 
         return true;
     };
@@ -163,13 +202,13 @@ var TimeController = function() {
     // Get the time (ms) when the previous or current timing began
     // Returns -1 if there was no previous or current event
     this.getBeginTime = function() {
-        return beginTime;
+        return beginTime.get();
     };
 
     // Get when the previous timing ended.
     // Returns -1 if there was no previous event
     this.getEndTime = function() {
-        return endTime;
+        return endTime.get();
     };
 
 };

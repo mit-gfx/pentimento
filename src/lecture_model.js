@@ -3,6 +3,8 @@
 'use strict';
 
 var LectureModel = function() {
+    var self = this;
+
     var visualsModel = null;
     var audioModel = null;
     var retimerModel = null;
@@ -18,9 +20,21 @@ var LectureModel = function() {
     this.getAudioModel = function() { return audioModel; }
     this.getRetimerModel = function() { return retimerModel; }
 
-    this.setVisualsModel = function(newVisualsModel) { visualsModel = newVisualsModel; }
-    this.setAudioModel = function(newAudioModel) { audioModel = newAudioModel; }
-    this.setRetimerModel = function(newRetimerModel) { retimerModel = newRetimerModel; }
+    this.setVisualsModel = function(newVisualsModel) {
+	var oldModel = visualsModel;
+	undoManager.add(function() { self.setVisualsModel(oldModel); });
+	visualsModel = newVisualsModel;
+    };
+    this.setAudioModel = function(newAudioModel) {
+	var oldModel = audioModel;
+	undoManager.add(function() { self.setAudioModel(oldModel); });
+	audioModel = newAudioModel;
+    };
+    this.setRetimerModel = function(newRetimerModel) {
+	var oldModel = retimerModel;
+	undoManager.add(function() { self.setRetimerModel(oldModel); });
+	retimerModel = newRetimerModel;
+    };
 
     // Get the duration of the lecture in milliseconds, which is the max duration of the audio and visuals
     this.getLectureDuration = function() {

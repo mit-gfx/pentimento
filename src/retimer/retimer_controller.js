@@ -49,6 +49,8 @@ var RetimerController = function(retimer_model, visuals_controller, audio_contro
     // The event handler function for when a user clicks on the constraints canvas.
     // It adds the constraint to the model, and then draws the arrow
     var addArrowHandler = function(event) {
+	undoManager.startHierarchy("userAction");
+
         var canvas = $('#'+constraintsCanvasID);
 
         var x;
@@ -87,6 +89,8 @@ var RetimerController = function(retimer_model, visuals_controller, audio_contro
 
         canvas.unbind('touchstart', addArrowHandler);
         canvas.unbind('touchstart', selectArea);
+
+	undoManager.endHierarchy("userAction");
     };
 
     var drawTickMarks = function(){
@@ -246,7 +250,7 @@ var RetimerController = function(retimer_model, visuals_controller, audio_contro
     // TODO: figure out if this is working properly with the interpolation (possible with getting the visual from audio)
     var addConstraint = function(audio_time, constraint_type) {
 
-            // FORUMULAS
+        // FORUMULAS
         // // interp_factor = (curr_time-prev_time)/(next_time-prevX)
         // // constraint_tVis = (next_time-prev_time)*interp_factor + prev_tVis
         // // constraint_tAud = (next_time-prev_time)*interp_factor + prev_tAud
@@ -457,6 +461,8 @@ var RetimerController = function(retimer_model, visuals_controller, audio_contro
     // When dragging starts, record whether the drag is for the top or bottom arrow
     // and record the original x position of the arrow
     var constraintDragStart = function(layer) {
+	undoManager.startHierarchy("userAction");
+
         $('#' + constraintsCanvasID).unbind('mousedown', selectArea);
         $('#' + constraintsCanvasID).unbind('mousemove', selectionDrag);
 
@@ -471,7 +477,7 @@ var RetimerController = function(retimer_model, visuals_controller, audio_contro
         $('#playhead').css('z-index', '-1000');
     };
 
-    // Dragging moves one of the arrow while the other tip remains in place
+    // Dragging moves one end of the arrow while the other tip remains in place
     var constraintDrag = function(layer) {
 
         // Get the constraint
@@ -578,6 +584,8 @@ var RetimerController = function(retimer_model, visuals_controller, audio_contro
 
         // Shift playhead to the front again (shifted to the back in constraintDragStart)
         $('#playhead').css('z-index', '1000');
+
+	undoManager.endHierarchy("userAction");
     };
 
     // When dragging cancels (drag off the canvas), it should reset to its original value
@@ -586,6 +594,7 @@ var RetimerController = function(retimer_model, visuals_controller, audio_contro
         layer.x1 = originalDragX;
         layer.x2 = originalDragX;
         // $('#' + constraintsCanvasID).on('mousedown', selectArea);
+	undoManager.endHierarchy("userAction");
     };
 
     // Dealing with insertions

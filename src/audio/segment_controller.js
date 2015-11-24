@@ -199,6 +199,7 @@ var AudioSegmentController = function(segment, trackController) {
             opacity: 0.65,
             handle: '#'+handleID,
             start: function( event, ui) {
+		undoManager.startHierarchy("userAction");
                 parentTrackController.segmentDragStart(event, ui, self);
             },
             drag: function( event, ui ) {
@@ -207,6 +208,8 @@ var AudioSegmentController = function(segment, trackController) {
             },
             stop: function( event, ui) {
                 parentTrackController.segmentDragFinish(event, ui, self);
+		console.log(1);
+		undoManager.endHierarchy("userAction");
             }
         }).resizable({
             containment: 'parent',
@@ -214,6 +217,7 @@ var AudioSegmentController = function(segment, trackController) {
             distance: 0,
             minWidth: 10,
             start: function( event, ui) {
+		undoManager.startHierarchy("userAction");
                 parentTrackController.segmentCropStart(event, ui, self);
             },
             resize: function( event, ui ) {
@@ -221,6 +225,7 @@ var AudioSegmentController = function(segment, trackController) {
             }, 
             stop: function( event, ui ) {
                 parentTrackController.segmentCropFinish(event, ui, self);
+		undoManager.endHierarchy("userAction");
             }
         });
 

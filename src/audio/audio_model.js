@@ -11,11 +11,13 @@ var AudioModel = function() {
 
     // Get the audio tracks
     this.getAudioTracks = function() {
-        return audio_tracks;
+        return audio_tracks.slice();
     };
 
     // Set the audio tracks
     this.setAudioTracks = function(tracks) {
+	var oldTracks = audio_tracks;
+	undoManager.addToStartOfGroup("recording", function() { self.setAudioTracks(oldTracks); });
         audio_tracks = tracks;
     };
 
@@ -37,7 +39,9 @@ var AudioModel = function() {
         audio_tracks.splice(insert_index, 0, track);
 
         // For the undo action, remove the track
-        undoManager.registerUndoAction(self, self.removeTrack, [track]);
+	undoManager.add(function(){
+            self.removeTrack(track);
+        });
 
         return true;
     };
@@ -57,10 +61,12 @@ var AudioModel = function() {
         // Remove the track from the tracks array if it exists
         if (index > -1) {
             audio_tracks.splice(index, 1);
-        };
 
-        // For the undo action, add the track
-        undoManager.registerUndoAction(self, self.addTrack, [track, index]);
+            // For the undo action, add the track
+	    undoManager.add(function(){
+		self.addTrack(track, index);
+            });
+        };
 
         return (index > -1);
     };
@@ -154,11 +160,13 @@ var AudioTrack = function() {
 
     // Get the audio segments
     this.getAudioSegments = function() {
-        return audio_segments;
+        return audio_segments.slice();
     };
 
     // Set the audio segments
     this.setAudioSegments = function(segments) {
+	var old_segments = audio_segments;
+	undoManager.addToStartOfGroup("recording", function() { self.setAudioSegments(old_segments); });
         audio_segments = segments;
     };
 
@@ -168,12 +176,6 @@ var AudioTrack = function() {
     // If a split occurs, returns an object {left, right, remove} with the left and right side of the 
     // split segment, and the segment that was removed to become the left and right parts.
     this.insertSegment = function(new_segment, do_shift_split) {
-
-        // Use a grouping because many actions are performed in order to insert a segment.
-        // This method does not directly modify the audio segments. Instead, it uses
-        // othes modifying methods to perform those actions. By using a group, we can
-        // combine the undo for all of those actions.
-        undoManager.beginGrouping();
 
         // Iterate over all segments for the track to see if the new segment's start time
         // intersects any segments.
@@ -228,9 +230,6 @@ var AudioTrack = function() {
             returnValue = { left: left_segment, right: right_segment, remove: intersect_segment };
         };
 
-        // End the grouping
-        undoManager.endGrouping();
-
         return returnValue;
     };
 
@@ -240,7 +239,9 @@ var AudioTrack = function() {
         audio_segments.push(segment);
 
         // For the undo action, remove the added segment
-        undoManager.registerUndoAction(self, self.removeSegment, [segment]);
+	undoManager.addToStartOfGroup("recording", function(){
+	    self.removeSegment(segment);
+        });
     };
 
     // Remove the specified segment. 
@@ -256,7 +257,13 @@ var AudioTrack = function() {
         audio_segments.splice(index, 1);
 
         // For the undo action, add the removed segment
-        undoManager.registerUndoAction(self, addSegment, [segment]);
+	if (undoManager.isGroupOpen("userAction")) {
+	    undoManager.add(function() { addSegment(segment); });
+	} else {
+	    undoManager.addToStartOfGroup("recording", function(){
+		addSegment(segment);
+            });
+	}
 
         return true;
     };
@@ -313,12 +320,12 @@ var AudioTrack = function() {
         return true;
     };
 
-	// Shifts the specified segment left or right by a certain number of milliseconds.
-	// If a negative number is given for shift_millisec, then the shift will be left.
+    // Shifts the specified segment left or right by a certain number of milliseconds.
+    // If a negative number is given for shift_millisec, then the shift will be left.
     // 'check' is optional and defaults to true. If false, it will shift without checking for validity
     // Return true if the shift succeeds
     // Otherwise, return the shift value of the greatest magnitude that would have produced a valid shift
-	this.shiftSegment = function(segment, shift_millisec, check) {
+    this.shiftSegment = function(segment, shift_millisec, check) {
 
         // Check for validity of the shift unless otherwise specified
         if (check !== false) {
@@ -329,14 +336,11 @@ var AudioTrack = function() {
         };
 
         // Get the new times for the segment
-        segment.start_time += shift_millisec;
-        segment.end_time += shift_millisec;
-
-        // For the undo action, reverse shift the segment. Don't check for validity.
-        undoManager.registerUndoAction(self, self.shiftSegment, [segment, -shift_millisec, false]);
+        segment.setStartTime(segment.start_time + shift_millisec);
+        segment.setEndTime(segment.end_time + shift_millisec);
 
         return true;
-	};
+    };
 
     // Returns whether the specified segment can be cropped on the left or right
     // If a negative number is given for crop_millisec, then the crop will shrink the segment.
@@ -431,18 +435,15 @@ var AudioTrack = function() {
         // Get the new times for the segment
         if (left_side === true) {  // left side
             // On the left side, a positive crop reduces the time of the side to expand the segment
-            segment.start_time -= crop_millisec;
-            segment.audio_start_time -= crop_millisec;
+            segment.setStartTime(segment.start_time - crop_millisec);
+            segment.setAudioStartTime(segment.audio_start_time - crop_millisec);
 
         } else {  // right side
             // On the right side, a positive crop increases the time of the side to expand the segment
-            segment.end_time += crop_millisec;
-            segment.audio_end_time += crop_millisec;
+            segment.setEndTime(segment.end_time + crop_millisec);
+	    segment.setAudioEndTime(segment.audio_end_time + crop_millisec);
         }
         console.log('segment after crop: ' + segment.start_time + " " + segment.end_time);
-
-        // For the undo action, reverse crop the segment. Don't check for validity.
-        undoManager.registerUndoAction(self, self.cropSegment, [segment, -crop_millisec, left_side, false]);
 
         return true;
 	};
@@ -515,12 +516,32 @@ var AudioSegment = function(audio_resource, audio_length, track_start_time) {
     var total_audio_length = audio_length;
 
     // Specifies what part of the audio clip should be played back
-	this.audio_start_time = 0;
-	this.audio_end_time = audio_length;
+    this.audio_start_time = 0;
+    this.setAudioStartTime = function(new_time) {
+	var old_time = self.audio_start_time;
+	undoManager.add(function() { self.setAudioStartTime(old_time); });
+	self.audio_start_time = new_time;
+    };
+    this.audio_end_time = audio_length;
+    this.setAudioEndTime = function(new_time) {
+	var old_time = self.audio_end_time;
+	undoManager.add(function() { self.setAudioEndTime(old_time); });
+	self.audio_end_time = new_time;
+    };
 
     // Location of the segment within the track
-	this.start_time = track_start_time;
-	this.end_time = track_start_time + audio_length;
+    this.start_time = track_start_time;
+    this.setStartTime = function(new_time) {
+	var old_time = self.start_time;
+	undoManager.add(function() { self.setStartTime(old_time); });
+	self.start_time = new_time;
+    };
+    this.end_time = track_start_time + audio_length;
+    this.setEndTime = function(new_time) {
+	var old_time = self.end_time;
+	undoManager.add(function() { self.setEndTime(old_time); });
+	self.end_time = new_time;
+    };
 
     // Get the URL of the audio resource blob needed for playback
     this.audioResource = function() {
@@ -554,17 +575,17 @@ var AudioSegment = function(audio_resource, audio_length, track_start_time) {
 
         // Create a left segment that is the same as the segment except for the end times
         var left_segment = new AudioSegment(audio_clip, total_audio_length, self.start_time);  // start_time is not used (it's set below)
-        left_segment.audio_start_time = self.audio_start_time;
-        left_segment.audio_end_time = self.trackToAudioTime(splitTime);
-        left_segment.start_time = self.start_time;
-        left_segment.end_time = splitTime;
+        left_segment.setAudioStartTime(self.audio_start_time);
+        left_segment.setAudioEndTime(self.trackToAudioTime(splitTime));
+        left_segment.setStartTime(self.start_time);
+        left_segment.setEndTime(splitTime);
 
         // Create a right segment that is the same as the segment except for the start times
         var right_segment = new AudioSegment(audio_clip, total_audio_length, self.start_time);  // start_time is not used (it's set below)
-        right_segment.audio_start_time = self.trackToAudioTime(splitTime);
-        right_segment.audio_end_time = self.audio_end_time;
-        right_segment.start_time = splitTime;
-        right_segment.end_time = self.end_time;
+        right_segment.setAudioStartTime(self.trackToAudioTime(splitTime));
+        right_segment.setAudioEndTime(self.audio_end_time);
+        right_segment.setStartTime(splitTime);
+        right_segment.setEndTime(self.end_time);
 
         // Return the two segments
         return { left: left_segment, right: right_segment };
@@ -628,10 +649,10 @@ var AudioSegment = function(audio_resource, audio_length, track_start_time) {
 // Loading the model from JSON
 AudioSegment.loadFromJSON = function(json_object) {
     var segment = new AudioSegment(json_object['audio_clip'], json_object['total_audio_length'], 0);
-    segment.audio_start_time = json_object['audio_start_time'];
-    segment.audio_end_time = json_object['audio_end_time'];
-    segment.start_time = json_object['start_time'];
-    segment.end_time = json_object['end_time'];
+    segment.setAudioStartTime(json_object['audio_start_time']);
+    segment.setAudioEndTime(json_object['audio_end_time']);
+    segment.setStartTime(json_object['start_time']);
+    segment.setEndTime(json_object['end_time']);
 
     return segment;
 };

@@ -13,6 +13,23 @@ var VisualsModel = function(canvas_width, canvas_height) {
     var canvasHeight = canvas_height;
 
     var dirtyVisuals = [];
+    var addDirtyVisual = function(visual) {
+	dirtyVisuals.push(visual);
+	undoManager.add(function() { removeDirtyVisual(visual) });
+    };
+    var removeDirtyVisual = function(visual) {
+	var index = dirtyVisuals.indexOf(visual);
+	if (index < 0) {
+	    console.error("removeDirtyVisual invalid index");
+	}
+	dirtyVisuals.splice(index, 1);
+	undoManager.add(function() { addDirtyVisual(visual); });
+    };
+    var clearDirtyVisuals = function() {
+	for (var i = 0; i < dirtyVisuals.length; i++) {
+	    removeDirtyVisual(dirtyVisuals[i]);
+	}
+    };
 
     // Gets the size of the canvas where the visuals are being recorded
     this.getCanvasSize = function() {
@@ -34,11 +51,13 @@ var VisualsModel = function(canvas_width, canvas_height) {
     ///////////////////////////////////////////////////////////////////////////////
 
     this.setSlides = function(slides_) {
+	var old_slides = slides;
+	undoManager.add(function() { self.setSlides(old_slides); });
         slides = slides_;
     };
 
     this.getSlides = function() {
-        return slides;
+        return slides.slice();
     };
 
     this.getSlidesIterator = function() {
@@ -83,7 +102,9 @@ var VisualsModel = function(canvas_width, canvas_height) {
 
         slides.splice(insert_index, 0, newSlide);
 
-        undoManager.registerUndoAction(self, self.removeSlide, [newSlide]);
+        undoManager.add(function(){
+            self.removeSlide(newSlide);
+        });
 
         return true;
     };
@@ -101,7 +122,9 @@ var VisualsModel = function(canvas_width, canvas_height) {
 
         slides.splice(index, 1);
 
-        undoManager.registerUndoAction(self, self.insertSlide, [slide, index]);
+        undoManager.add(function(){
+            self.insertSlide(slide, index);
+        });
 
         return true;
     };
@@ -116,10 +139,10 @@ var VisualsModel = function(canvas_width, canvas_height) {
         for(var i in visuals) {
             var visual = visuals[i];
             var slide = self.getSlideAtTime(visual.getTMin());
-            slide.getVisuals().push(visual);
+            var new_visuals = slide.getVisuals();
+	    new_visuals.push(visual);
+	    slide.setVisuals(new_visuals);
         };
-
-        undoManager.registerUndoAction(self, self.deleteVisuals, [visuals]);
     };
 
     this.deleteVisuals = function(visuals) {
@@ -134,24 +157,23 @@ var VisualsModel = function(canvas_width, canvas_height) {
                 return;
             };
 
-            slide.getVisuals().splice(index, 1);
+	    var new_visuals = slide.getVisuals();
+            new_visuals.splice(index, 1);
+	    slide.setVisuals(new_visuals);
         };
-
-        undoManager.registerUndoAction(self, self.addVisuals, [visuals]);
     };
 
     // Visuals time can be null to indicate the lack of a deletion time
     this.visualsSetTDeletion = function(visual, visuals_time) {
 
-        undoManager.beginGrouping();
+        undoManager.startHierarchy('coalesce');
 
         for(var i in self.selection) {
             var visual = self.selection[i];
-            undoManager.registerUndoAction(visual, visual.setTDeletion, [visual.getTDeletion()]);
             visual.setTDeletion(visuals_time);
         };
 
-        undoManager.endGrouping();
+        undoManager.endHierarchy('coalesce');
     };
 
     // Creates wrappers around the visuals that keeps track of their previous time
@@ -182,7 +204,7 @@ var VisualsModel = function(canvas_width, canvas_height) {
             visual.setTMin(Number.POSITIVE_INFINITY); //could alternatively say Number.MAX_VALUE or Number.MAX_SAFE_INTEGER
 
             // Add the wrapper to dirty visuals
-            dirtyVisuals.push(wrapper);
+            addDirtyVisual(wrapper);
 
         };  // end of iterating over visuals
     };
@@ -204,7 +226,7 @@ var VisualsModel = function(canvas_width, canvas_height) {
         self.shiftVisuals(visuals, shift_amount);
 
         // Clear the dirty visuals
-        dirtyVisuals = [];
+        clearDirtyVisuals();
     };
 
     // Shift the visual by an amount, which shifts all vertices and transforms
@@ -240,8 +262,6 @@ var VisualsModel = function(canvas_width, canvas_height) {
         for(var i in visuals) { 
             doShiftVisual(visuals[i], amount);
         };
-
-        undoManager.registerUndoAction(self, self.shiftVisuals, [visuals, -amount]);
     }
 
     ///////////////////////////////////////////////////////////////////////////////
@@ -401,12 +421,19 @@ var Slide = function() {
     var visuals = [];
     var duration = 0;  // milliseconds integer
     
-    this.getVisuals = function() { return visuals; }
+    this.getVisuals = function() { return visuals.slice(); }
     this.getDuration = function() { return duration; }
-    this.setVisuals = function(newVisuals) { visuals = newVisuals; }
+    this.setVisuals = function(newVisuals) {
+	var old_visuals = visuals;
+	undoManager.add(function() { self.setVisuals(old_visuals); });
+	visuals = newVisuals;
+    }
 
     this.setDuration = function(newDuration) {
-        undoManager.registerUndoAction(self, self.setDuration, [duration]);
+	var old_duration = duration;
+        undoManager.add(function(){
+            self.setDuration(old_duration);
+        });
         duration = newDuration;
     }
 
@@ -473,18 +500,46 @@ var Visual = function(tmin, props) {
     this.getType = function() { return type; }
     this.getHyperlink = function() { return hyperlink; }
     this.getTDeletion = function() { return tDeletion; }
-    this.getPropertyTransforms = function() { return propertyTransforms; }
-    this.getSpatialTransforms = function() { return spatialTransforms; }
+    this.getPropertyTransforms = function() { return propertyTransforms.slice(); }
+    this.getSpatialTransforms = function() { return spatialTransforms.slice(); }
     this.getTMin = function() { return tMin; }
-    this.getProperties = function() { return properties; }
+    this.getProperties = function() { return properties; } // This is still mutable, make copy of object
 
-    this.setType = function(newType) { type = newType; }
-    this.setHyperlink = function(newHyperlink) { hyperlink = newHyperlink; }
-    this.setTDeletion = function(newTDeletion) { tDeletion = newTDeletion; }
-    this.setPropertyTransforms = function(newTransforms) { propertyTransforms = newTransforms; }
-    this.setSpatialTransforms = function(newTransforms) { spatialTransforms = newTransforms; }
-    this.setTMin = function(newTMin) { tMin = newTMin; }
-    this.setProperties = function(newProperties) { properties = newProperties; }
+    this.setType = function(newType) {
+	var oldType = type;
+	undoManager.add(function() { self.setType(oldType); });
+	type = newType;
+    };
+    this.setHyperlink = function(newHyperlink) {
+	var oldHyperlink = hyperlink;
+	undoManager.add(function() { self.setHyperlink(oldHyperlink); });
+	hyperlink = newHyperlink;
+    };
+    this.setTDeletion = function(newTDeletion) {
+	var oldTDeletion = tDeletion;
+	undoManager.add(function() { self.setTDeletion(oldTDeletion); });
+	tDeletion = newTDeletion;
+    };
+    this.setPropertyTransforms = function(newTransforms) {
+	var oldTransforms = propertyTransforms;
+	undoManager.add(function() { self.setPropertyTransforms(oldTransforms); });
+	propertyTransforms = newTransforms;
+    };
+    this.setSpatialTransforms = function(newTransforms) {
+	var oldTransforms = spatialTransforms;
+	undoManager.add(function() { self.setSpatialTransforms(oldTransforms); });
+	spatialTransforms = newTransforms;
+    };
+    this.setTMin = function(newTMin) {
+	var oldTMin = tMin;
+	undoManager.add(function() { self.setTMin(oldTMin); });
+	tMin = newTMin;
+    };
+    this.setProperties = function(newProperties) {
+	var oldProperties = properties;
+	undoManager.add(function() { self.setProperties(properties); });
+	properties = newProperties;
+    };
 
     this.getPropertyTransformsIterator = function() { return new Iterator(propertyTransforms); }
     this.getSpatialTransformsIterator = function() { return new Iterator(spatialTransforms); }
@@ -513,14 +568,18 @@ var Visual = function(tmin, props) {
         };
         spatialTransforms.splice(insert_index, 0, transform);
 
-        undoManager.registerUndoAction(self, self.removeSpatialTransform, [transform.getTime()]);
+        undoManager.add(function(){
+            self.removeSpatialTransform(transform.getTime());
+        });
     };
 
     // Remove the spatial transform that is active at the specified time
     this.removeSpatialTransform = function(time) {
         // TODO
 
-        undoManager.registerUndoAction(self, self.pushSpatialTransform, [transform]);
+        undoManager.add(function(){
+            self.pushSpatialTransform(transform);
+        });
     };
 
     // Returns the spatial transform at the given time (non-interpolated)
@@ -567,7 +626,9 @@ var Visual = function(tmin, props) {
                 return;
         }
 
-        undoManager.registerUndoAction(self, self.applyPropertyTransform, [property_name, old_value]);
+        undoManager.add(function(){
+            self.applyPropertyTransform(property_name, old_value);
+        });
     };
 
     // Push a property transform that has a time when it becomes active.
@@ -581,6 +642,9 @@ var Visual = function(tmin, props) {
             insert_index = i + 1;
         };
         propertyTransforms.splice(insert_index, 0, transform);
+	undoManager.add(function() {
+	    self.removePropertyTransform(transform.getTime());
+	});
     };
 
     // Remove the property transform that is active at the specified time
@@ -606,7 +670,9 @@ var Visual = function(tmin, props) {
             return spatialTransforms[return_index-1];
         };
 
-        undoManager.registerUndoAction(self, self.pushPropertyTransform, [transform]);
+        undoManager.add(function(){
+            self.pushPropertyTransform(transform);
+        });
     };
 
     // Returns the properties at the given time (non-interpolated)
@@ -724,12 +790,26 @@ var StrokeVisual = function(tmin, props) {
     var vertices = [];
     
     this.getVertices = function() { return vertices; }
-    this.setVertices = function(newVertices) { vertices = newVertices; }
+    this.setVertices = function(newVertices) {
+	var oldVertices = vertices;
+	undoManager.add(function() { self.setVertices(oldVertices); });
+	vertices = newVertices;
+    };
     this.getVerticesIterator = function() { return new Iterator(vertices); }
 
     this.appendVertex = function(vertex) {
         vertices.push(vertex);
+	undoManager.add(function() { self.removeVertex(vertex); });
     };
+
+    this.removeVertex = function(vertex) {
+	var index = vertices.indexOf(vertex);
+	if (index < 0) {
+	    console.error('removeVertex invalid index');
+	}
+	vertices.splice(index, 1);
+	undoManager.add(function() { self.appendVertex(vertex); });
+    }
 
     // Overrides the parent applyTransform()
     // Applies the transform to all the vertices in the stroke.
@@ -740,9 +820,6 @@ var StrokeVisual = function(tmin, props) {
             vertices[i].setX(resultVertexArray[0]);
             vertices[i].setY(resultVertexArray[1]);
         };
-
-        // For the undo operation, apply the inverse transform
-        undoManager.registerUndoAction(self, self.applySpatialTransform, [math.inv(transformMatrix)]);
     };
 
     // Saving the model to JSON
@@ -789,9 +866,17 @@ var VisualProperty = function(c, w) {
     var width = w;
 
     this.getColor = function() { return color; }
-    this.setColor = function(newColor) { color = newColor; }
+    this.setColor = function(newColor) {
+	var oldColor = color;
+	undoManager.add(function() { self.setColor(oldColor); });
+	color = newColor;
+    };
     this.getWidth = function() { return width; }
-    this.setWidth  = function(newWidth) { width = newWidth; }
+    this.setWidth  = function(newWidth) {
+	var oldWidth = width;
+	undoManager.add(function() { self.setWidth(oldWidth); });
+	width = newWidth;
+    };
 
     // Saving the model to JSON
     this.saveToJSON = function() {
@@ -846,9 +931,17 @@ var VisualSpatialTransform = function(mat, time) {
     var t = time;
 
     this.getMatrix = function() { return matrix; }
-    this.setMatrix = function(newMatrix) { matrix = newMatrix; }
+    this.setMatrix = function(newMatrix) {
+	var oldMatrix = matrix;
+	undoManager.add(function() { self.setMatrix(oldMatrix); });
+	matrix = newMatrix;
+    };
     this.getTime = function() { return time; }
-    this.setTime = function(newTime) { t = newTime; }
+    this.setTime = function(newTime) {
+	var oldTime = t;
+	undoManager.add(function() { self.setTime(oldTime); });
+	t = newTime;
+    };
 
     // Saving the model to JSON
     this.saveToJSON = function() {
@@ -882,10 +975,26 @@ var Vertex = function(myX, myY, myT, myP) {
     this.getT = function() { return t; }
     this.getP = function() { return p; }
 
-    this.setX = function(newX) { x = newX; }
-    this.setY = function(newY) { y = newY; }
-    this.setT = function(newT) { t = newT; }
-    this.setP = function(newP) { p = newP; }    
+    this.setX = function(newX) {
+	var oldX = x;
+	undoManager.add(function() { self.setX(oldX); });
+	x = newX;
+    };
+    this.setY = function(newY) {
+	var oldY = y;
+	undoManager.add(function() { self.setY(oldY); });
+	y = newY;
+    };
+    this.setT = function(newT) {
+	var oldT = t;
+	undoManager.add(function() { self.setT(oldT); });
+	t = newT;
+    };
+    this.setP = function(newP) {
+	var oldP = p;
+	undoManager.add(function() { self.setP(oldP); });
+	p = newP;
+    };
 
     // Returns a boolean indicating whether the vertex is visible at the given time
     this.isVisible = function(tVisual) {

@@ -8,7 +8,7 @@ var RetimerModel = function() {
     var TOLERANCE = 10;
 
     this.getConstraints = function() {
-        return constraints;
+        return constraints.slice();
     };
 
 	this.makeConstraintDirty = function(constraint) {
@@ -81,10 +81,7 @@ var RetimerModel = function() {
         // Else, push to the undo manager.
         if (test || !isValid) {
             constraint.setTVisual(oldTVisual);
-        } else {
-            // For the undo action, set the constraint's visual time to the old value.
-            undoManager.registerUndoAction(self, self.updateConstraintVisualsTime, [constraint, audioTimeCorrespondingToOldVisualsTime]);
-        };
+        }
 
         // Return whether the update was valid
         return isValid;
@@ -117,10 +114,7 @@ var RetimerModel = function() {
         // Else, push to the undo manager.
         if (test || !isValid) {
             constraint.setTAudio(oldTAudio);
-        } else {
-            // For the undo action, set the constraint's audio time to the old value.
-            undoManager.registerUndoAction(self, self.updateConstraintAudioTime, [constraint, oldTAudio]);
-        };
+        }
 
         // Return whether the update was valid
         return isValid;
@@ -144,7 +138,9 @@ var RetimerModel = function() {
 		constraints.splice(index, 0, constraint);
 
         // For the undo action, delete the added constraint
-        undoManager.registerUndoAction(self, self.deleteConstraint, [constraint]);
+        undoManager.add(function(){
+            self.deleteConstraint(constraint);
+        });
 
 		return true;
 	}
@@ -155,7 +151,9 @@ var RetimerModel = function() {
 		constraints.splice(index, 1);
 
         // For the undo action, add the deleted constraint
-        undoManager.registerUndoAction(self, self.addConstraint, [constraint]);
+        undoManager.add(function(){
+            self.addConstraint(constraint);
+        });
 	};
 
 	this.shiftConstraints = function(constraints, amount) {
@@ -164,9 +162,6 @@ var RetimerModel = function() {
             constraint.setTVisual(constraint.getTVisual()+amount);
             constraint.setTAudio(constraint.getTAudio()+amount);
 		};
-
-        // For the undo action, reverse shift the constraints
-        undoManager.registerUndoAction(self, self.shiftConstraints, [constraints, -amount]);
 	};
 
 	this.getConstraintsIterator = function() {
@@ -302,14 +297,26 @@ var Constraint = function(tvis, taud, mytype) {
     this.getType = function() { return type; }
     this.getDisabled = function() { return disabled; }
 
-    this.setTVisual = function(newTVis) { 
+    this.setTVisual = function(newTVis) {
+	var oldTVis = tVis;
+	undoManager.add(function() { self.setTVisual(oldTVis); });
         tVis = Math.round(newTVis);
     };
 
     this.setTAudio = function(newTAud) {
+	var oldTAud = tAud;
+	undoManager.add(function() { self.setTAudio(oldTAud); });
         tAud = Math.round(newTAud); 
     };
 
-    this.setType = function(newType) { type = newType; }
-    this.setDisabled = function(newBool) { disabled = newBool; }
+    this.setType = function(newType) {
+	var oldType = type;
+	undoManager.add(function() { self.setType(oldType); });
+	type = newType;
+    };
+    this.setDisabled = function(newBool) {
+	oldBool = disabled;
+	undoManager.add(function() { self.setDisabled(oldBool); });
+	disabled = newBool;
+    };
 };

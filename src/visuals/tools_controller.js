@@ -119,6 +119,8 @@ var ToolsController = function(visuals_controller) {
         // Get the tool name through the attribute
         var tool = $(event.target).attr(toolNameAttr);
 
+	undoManager.startHierarchy("userAction");
+
         // Perform different actions depending on what tool was used.
         // There might be a direct call to the visuals controller,
         // or another handler might be activated for sustained tools (as opposed to a one-time button)
@@ -172,6 +174,7 @@ var ToolsController = function(visuals_controller) {
         		console.error('Unrecognized tool clicked, recording tools');
         		console.error(tool);
         };
+	undoManager.endHierarchy("userAction");
     };
 
     // This activates a 'sustained' tool on the canvas. This is used for tools
@@ -225,6 +228,7 @@ var ToolsController = function(visuals_controller) {
 
     // DRAW: When the mouse is pressed down, activate the mouse move and mouse up handlers and start a new current visual
     var drawMouseDown = function(event) {
+	undoManager.startHierarchy("userAction");
         console.log("touchdown: "+strokeColor);
         event.preventDefault();
         event.stopPropagation();
@@ -292,6 +296,7 @@ var ToolsController = function(visuals_controller) {
 
         visualsController.canvas.off('touchmove');
         visualsController.canvas.off('touchend');
+	undoManager.endHierarchy("userAction");
     };
 
     // Reset the selection box so that it is not visible and that the UI is turned off
@@ -663,7 +668,7 @@ var ToolsController = function(visuals_controller) {
     $('.'+toolClass).click(toolEventHandler);
 
     // Setup the width tool
-    $("["+toolNameAttr+"='"+widthTool+"']").change(function() {
+    $("["+toolNameAttr+"='"+widthTool+"']").change(function(event) {
         var new_width = parseInt(event.target.value);
         widthChanged(new_width);
     });

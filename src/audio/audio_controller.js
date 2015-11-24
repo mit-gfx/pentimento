@@ -127,9 +127,11 @@ var AudioController = function(audio_model) {
     // Add a new track
     var addTrack = function() {
 
+	undoManager.startHierarchy("userAction");
         // Create a new track in the model
         var new_track = new AudioTrack();
         audioModel.addTrack(new_track);
+	undoManager.endHierarchy("userAction");
 
         // Redraw
         self.draw();
@@ -138,11 +140,13 @@ var AudioController = function(audio_model) {
     // Remove a track
     var removeTrack = function() {
 
+	undoManager.startHierarchy("userAction");
         // Get the index of the track
         var track_to_delete = audioModel.getAudioTracks()[activeTrackIndex];
 
         // Try removing the track from the model
         var result = audioModel.removeTrack(track_to_delete);
+	undoManager.endHierarchy("userAction");
         if (!result) {
             return;
         };        
@@ -800,10 +804,12 @@ var AudioController = function(audio_model) {
     // Button listeners for deleting an audio segment
     var deleteSegmentButton = $('#'+deleteSegmentButtonID);
     deleteSegmentButton.click(function() {
+	undoManager.startHierarchy("userAction");
         // For each track, remove the segments that have focus
         for (var i = 0; i < trackControllers.length; i++) {
             trackControllers[i].removeFocusedSegments(); 
         };
+	undoManager.endHierarchy("userAction");
     });
 
     // Listeners for inserting and deleting a track
