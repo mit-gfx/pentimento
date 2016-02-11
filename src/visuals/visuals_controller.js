@@ -1,279 +1,94 @@
-//Because of integration with the undo manager, the undo actions should call updateVisuals()
-//appropriately. Only the undo actions, though, not the forward actions! Therefore, any time
-//um.add is called, it should have an updateVisuals inside of the function if necessary
 "use strict";
+var VisualsController = function(lecture, visuals) {
 
-var VisualsController = function(visuals_model, retimer_model, timeController) {
-    var self = this;
-    var visualsModel = null;
-    var retimerModel = null;
-    var renderer = null;
-
-    // DOM elements
-    var canvasContainerID = 'sketchpadWrap';
-    var canvasID = 'sketchpad';
-    var canvasOverlayID = 'sketchpadOverlay';  // Used for displaying HTML elements on top of the canvas
-    this.canvas = null;
-    this.canvasOverlay = null;
-
-    this.currentVisual = null;
-    this.selection = [];
-
-    this.getVisualsModel = function() {
-        return visualsModel;
-    };
-
-    this.getRetimerModel = function() {
-        return retimerModel;
-    };
-
-    ///////////////////////////////////////////////////////////////////////////////
-    // Drawing of Visuals
-    ///////////////////////////////////////////////////////////////////////////////
-
-    // Callback function of updateTime.
-    // Draws to the canvas through the renderer
-    // The time is optional and is the audio time.
-    // If the time is not provided, the visuals will be drawn at the current time of the time controller.
-    this.drawVisuals = function(audio_time) {
-        // Convert the audio time to visuals time,
-        // or use the current time if undefined.
-        var visuals_time;
-        if (typeof audio_time !== 'undefined') {
-            visuals_time = retimerModel.getVisualTime(audio_time);
-        } else {
-            visuals_time = self.currentVisualTime();
-        };
-
-        // Render the canvas
-        var context = self.canvas[0].getContext('2d')
-        renderer.drawCanvas(self.canvas, context, 0, visuals_time);
-    };
-
-    ///////////////////////////////////////////////////////////////////////////////
-    // Modifying Slides
-    ///////////////////////////////////////////////////////////////////////////////
-
-    // Shortcut for the time controller time converted to visual time through the retimer
-    this.currentVisualTime = function() {
-        return retimerModel.getVisualTime(timeController.getTime());
-    };
-
-    // Get the slide at the current time
-    this.currentSlide = function() {
-        return visualsModel.getSlideAtTime(self.currentVisualTime());
-    };
-
-    this.addSlide = function() {
-
-        // Get the previous slide and create a new slide
-        var previousSlide = self.currentSlide();
-        var previousSlideIndex = visualsModel.getIndexOfSlide(previousSlide);
-
-        // Get the difference in time for when the slide began recording to the current time
-        var diff = self.currentVisualTime() = visualsModel.getSlideBeginTime(previousSlide);
-
-        var newSlide = new Slide();
-        if (!previousSlide) { 
-            console.error('previous slide missing');
-        };
-
-        // Update the duration of the current slide to reflect the difference
-        previousSlide.setDuration(previousSlide.getDuration() + diff);
-        
-        // Insert the slide into the model
-        var result = visualsModel.insertSlide(newSlide, previousSlideIndex + 1);
-        if (!result) {
-            console.error("slide could not be inserted");
-        };
-
-        // Clear the canvas for a new slide
-        var context = self.canvas[0].getContext('2d');
-        var canvas_width = visualsModel.getCanvasSize().width;
-        var canvas_height = visualsModel.getCanvasSize().height;
-
-        console.log("widht: " + canvas_width);
-        context.clearRect(0, 0, canvas_width, canvas_height);
-
-        context.rect(0, 0, canvas_width, canvas_height);
-        context.fillStyle = "white";
-        context.fill();
-    };
-
-    // this.shiftSlideDuration = function(slide, amount) {
-    //     slide.setDuration(slide.getDuration() + amount);
-    // };
+    //// TOOLS ////
     
-    // this.deleteSlide = function(slide) {
+    var TOOL_CLASS = "visuals-tool";
+    var tools = {
+	pen: PenTool(visuals),
+	select: SelectTool(visuals)
+    };
+    var active_tool = tools.pen;
 
-    //     // Delete the slide from the model
-    //     var result = visualsModel.removeSlide();
-    //     if (!result) {
-    //         console.error("slide could not be deleted");
-    //     };
+    $("." + TOOL_CLASS).click(function(e) {
+	active_tool = tools[$(this).attr("id")];
+    });
+    
+    var extendEventArgs = function(args) {
+	var aud_t = lecture.timer.current_time.get();
+	args.vis_t = lecture.retimer.getVisualTime(aud_t);
+	args.recording = lecture.is_recording.get();
+	return args;
+    };
+    
+    var canvas_evt_mgr = PointerEventManager(VisualsView.IDS.canvas);
+    var CANVAS_EVENTS = canvas_evt_mgr.EVENT_TYPES;
+    canvas_evt_mgr.addEventListener(CANVAS_EVENTS.pointer_down, function(e) {
+	active_tool.start(extendEventArgs(e));
+    });
+    canvas_evt_mgr.addEventListener(CANVAS_EVENTS.pointer_drag, function(e) {
+	active_tool.update(extendEventArgs(e));
+    });
+    canvas_evt_mgr.addEventListener(CANVAS_EVENTS.pointer_up, function(e) {
+	active_tool.stop(extendEventArgs(e));
+    });
+
+    var sel_evt_mgr = PointerEventManager(VisualsView.IDS.selection,
+					  VisualsView.IDS.canvas);
+    var SEL_EVENTS = sel_evt_mgr.EVENT_TYPES;
+    sel_evt_mgr.addEventListener(SEL_EVENTS.pointer_down, function(e) {
+	canvas_evt_mgr.disable();
+	active_tool.start(extendEventArgs(e));
+    });
+    sel_evt_mgr.addEventListener(SEL_EVENTS.pointer_drag, function(e) {
+	active_tool.update(extendEventArgs(e));
+    });
+    sel_evt_mgr.addEventListener(SEL_EVENTS.pointer_up, function(e) {
+	active_tool.stop(extendEventArgs(e));
+	canvas_evt_mgr.enable();
+    });
+
+    
+    //// ACTIONS ////
+
+    var actions_evt_mgr = ActionsEventManager(lecture);
+    var ACTION_EVENTS = actions_evt_mgr.EVENT_TYPES;
         
-    //     // Update the time cursor
-    //     var duration = 0;
-    //     var slideIter = visualsModel.getSlidesIterator();
-    //     while(slideIter.hasNext()) {
-    //         var sl = slideIter.next();
-    //         if(slideIter.index == index) { break; }
-    //         duration += sl.getDuration();
-    //     }
-    //     // TODO: use retimer for times
-    //     var slideTime = pentimento.timeController.getTime() - duration;
-    //     pentimento.timeController.updateTime(duration);
-    // };
-
-
-    ///////////////////////////////////////////////////////////////////////////////
-    // Modifying Visuals
-    //
-    // This section is primarily concerned with the modifying of the properties of
-    // a visual. Modifying visuals during recording of visuals usually manifests as a transform, 
-    // while modifying while in editing mode (i.e. not recording) usually directly changes the property.
-    ///////////////////////////////////////////////////////////////////////////////
-
-    // Add a visual that has finished being drawn
-    this.addVisual = function(visual) {
-        visualsModel.addVisuals([visual]);
+    var changeProperty = function(e) {
+	visuals.current_props[e.name].set(e.value);
     };
+    actions_evt_mgr.addEventListener(ACTION_EVENTS.property_change,
+				     changeProperty);
 
-    // Delete the visuals in the selection during a recording.
-    // This sets the tDeletion property for all visuals in the selection
-    this.recordingDeleteSelection = function() {
-        var currentTime = self.currentVisualTime();
-
-        // Use the model to set the deletion time
-        visualsModel.visualsSetTDeletion(self.selection, currentTime);
-
-        // Clear the selection and redraw to show the update
-        self.selection = [];
-        self.drawVisuals();
+    var addSlide = function(e) {
+	visuals.addSlide(e.vis_t);
     };
+    actions_evt_mgr.addEventListener(ACTION_EVENTS.add_slide, addSlide);
 
-    // Deletes all visuals in the selection while in editing mode.
-    // This removes the visuals entirely from all points in time.
-    this.editingDeleteSelection = function() {
-
-        // Use the model to delete the visuals
-        visualsModel.deleteVisuals(self.selection);
-
-        // Clear the selection and redraw to show the update
-        self.selection = [];
-        self.drawVisuals();
-
-        // Redraw the thumbnails as well
-        // TODO: find out a good way to signal the retimer controller
+    var deleteSlide = function(e) {
+	var slide = visuals.getSlideAtVisT(e.vis_t);
+	visuals.slides.removeValue(slide);
+	//TODO: redraw main canvas and thumbnails
+	//TODO: shift later slides up in time
     };
+    actions_evt_mgr.addEventListener(ACTION_EVENTS.delete_slide, deleteSlide);
 
-    // Transform the visuals in the selection during a recording.
-    this.recordingSpatialTransformSelection = function(transform_matrix) {
-
-        var current_time = self.currentVisualTime();
-
-        undoManager.startHierarchy('coalesce');
-
-        // Push the transform to the selected visuals
-        for (var i = 0; i < self.selection.length; i++) {
-            var visual = self.selection[i];
-
-            // Get the final transform matrix that should be pushed.
-            // The provided transform is just the difference between the current transform matrix
-            // and the actual position, so multiply the two matrices.
-            console.log(visual.spatialTransformAtTime(current_time));
-            var current_transform_matrix = visual.spatialTransformAtTime(current_time).getMatrix();
-            var total_transform_matrix = math.multiply(transform_matrix, current_transform_matrix);
-
-            // Create the spatial transform that will be pushed to the visuals
-            var new_transform = new VisualSpatialTransform(total_transform_matrix.valueOf(), current_time);
-
-            visual.pushSpatialTransform(new_transform);
-        };
-
-        undoManager.endHierarchy('coalesce');
-
-        // Redraw at the current time
-        self.drawVisuals(current_time);
+    var deleteVisuals = function(e) {
+	var vis_t;
+	if (e.recording) {
+	    vis_t = e.vis_t;
+	}
+	// a null vis_t will delete the visuals from the entire lecture
+	visuals.selection.deleteVisuals(vis_t);
     };
+    actions_evt_mgr.addEventListener(ACTION_EVENTS.delete_visuals,
+				     deleteVisuals);
 
-    // Transform the visuals in the selection while in editing mode.
-    this.editingSpatialTransformSelection = function(transform_matrix) {
 
-        undoManager.startHierarchy('coalesce');
-
-        // Apply the transform to the selected visuals
-        for (var i = 0; i < self.selection.length; i++) {
-            var visual = self.selection[i];
-            visual.applySpatialTransform(transform_matrix);
-        };
-
-        undoManager.endHierarchy('coalesce');
-
-        // Redraw at the current time
-        self.drawVisuals();
-    };
-
-    // Changes the properties of the selection of visuals during recording
-    // This pushes a property transform onto the selected visuals
-    this.recordingPropertyTransformSelection = function(visual_property_transform) {
-
-        undoManager.startHierarchy('coalesce');
-
-        for(var i in self.selection) {
-            var visual = self.selection[i];
-            visual.pushPropertyTransform(visual_property_transform);
-        };
-
-        undoManager.endHierarchy('coalesce');
-
-        // Redraw to show the update
-        self.selection = [];
-        self.drawVisuals();
-    };
-
-    // Changes the properties of the selection of visuals during editing
-    this.editingPropertyTransformSelection = function(property_name, new_value) {
-
-        undoManager.startHierarchy('coalesce');
-
-        for(var i in self.selection) {
-            var visual = self.selection[i];
-            visual.applyPropertyTransform(property_name, new_value);
-        };
-
-        undoManager.endHierarchy('coalesce');
-
-        // Redraw to show the update
-        self.selection = [];
-        self.drawVisuals();
-    };
-
-    ///////////////////////////////////////////////////////////////////////////////
-    // Initialization
-    ///////////////////////////////////////////////////////////////////////////////
-
-    visualsModel = visuals_model;
-    retimerModel = retimer_model;
-
-    // Setup the canvas and overlay dimensions
-    // Canvas size must be set using attributes, not CSS
-    self.canvas = $('#'+canvasID);
-    self.canvas.attr('width', visualsModel.getCanvasSize().width)
-                .attr('height', visualsModel.getCanvasSize().height);
-    self.canvasOverlay = $('#'+canvasOverlayID);
-    self.canvasOverlay.css('width', visualsModel.getCanvasSize().width)
-                    .css('height', visualsModel.getCanvasSize().height);
-    $('#'+canvasContainerID).css('width', visualsModel.getCanvasSize().width)
-                    .css('height', visualsModel.getCanvasSize().height);
-
-    // Get the context from the canvas
-    self.context = self.canvas[0].getContext('2d');
-
-    renderer = new Renderer(self);
-
-    // Register callbacks for the time controller
-    timeController.addUpdateTimeCallback(self.drawVisuals);
-
+    //// VIEW ////
+    
+    var view = VisualsView(visuals, lecture);
+    lecture.timer.current_time.addEventListener(view.draw);
+    visuals.selection.addEventListener(view.draw);
 };
 

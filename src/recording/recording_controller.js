@@ -1,128 +1,130 @@
+//TODO: This controller is kinda an event manager, but it depends on an event
+//    manager. Hmmm... This might make sense. But is there a better way?
 "use strict";
+var RecordingController = function(lecture) {
+    var timer = lecture.timer;
 
-var RecordingController = function(visualsController, audioController, retimerController, toolsController, timeController, undoManager) {
-    var self = {};
+    var view = RecordingView();
+    var evt_mgr = RecordingEventManager();
+    var EVENTS = evt_mgr.EVENT_TYPES;
 
-    var isRecording = false;
-    var isRecordingVisuals = false;
-    var isRecordingAudio = false;
+    var visualTM = TimeManager.getVisualManager();
+    var audioTM = TimeManager.getAudioManager();
+    
+    var recording = false;
+    var record_visuals = true;
+    var record_audio = true;
+
+    var changeContentType = function(e) {
+	record_visuals = e.visuals;
+	record_audio = e.audio;
+    };
+    evt_mgr.addEventListener(EVENTS.change_content_type, changeContentType);
+    
+
+    var self = EventManager().initializeEvents({
+	start: "start",
+	start_audio: "start_audio",
+	start_visual: "start_visual",
+	stop: "stop",
+	stop_audio: "stop_audio",
+	stop_visual: "stop_visual"
+    });
 
     // Returns true if a recording is in progress
     self.isRecording = function() {
-        return isRecording;
+        return recording;
     };
 
     // Start recording and notify other controllers
-    // Returns true and executes callback if it succeeds
-    self.startRecording = function(shouldRecordVisuals, shouldRecordAudio, callback) {
+    // Returns true if it succeeds
+    var startRecording = function() {
 
         // Start the timing and exit if it fails
-        if (!timeController.startTiming()) {
+        if (!timer.startTiming()) {
             return false;
         };
 
-        isRecording = true;
+        recording = true;	
+        undoManager.startHierarchy("recording");
 
-        // Start the undo hierarchy so that an undo after recording ends will undo the entire recording
-        undoManager.beginGrouping();
+        var begin_time = timer.getBeginTime(); //TODO: any reason why we need getBegin/EndTime instead of just returning a time from start/endTiming?
 
-        var beginTime = timeController.getBeginTime();
-
-        // On undo, revert to the begin time
-        undoManager.registerUndoAction(self, changeTime, [beginTime]);
-
-        // Notify controllers depending on the recording types 
-        if (shouldRecordVisuals) {  // visuals
-
-            if (!visualsController.currentSlide()) {
-                console.error("there is no current slide");
-                return;
-            }
-
-            visualsController.selection = [];
-
-            TimeManager.getVisualInstance().shiftAfterBy(beginTime, 24*60*60*1000);
-
-            isRecordingVisuals = true;
+        if (record_visuals) {
+	    //TODO: should this be a listener?
+	    //also TODO: doesn't work very well when inserting in the middle of
+	    // prexisting stuff
+//            visualTM.prepareShift(begin_time);
+	    self.fireEvent(self.EVENT_TYPES.start_visual,
+			   {start_time: begin_time});
         };
 
-        if (shouldRecordAudio) {  // audio
-            audioController.startRecording(beginTime);
-            isRecordingAudio = true;
+        if (record_audio) {
+	    //TODO (maybe should be listener)
+	    //disableEditUI(); // from audio_controller
+	    self.fireEvent(self.EVENT_TYPES.start_audio,
+			   {start_time: begin_time});
+	    // TODO: Add an indicator in the selected track to show the duration of the recording
         };
 
-        TimeManager.getAudioInstance().shiftAfterBy(beginTime, 24*60*60*1000);
-        retimerController.addConstraint(beginTime, ConstraintTypes.Automatic);
+	self.fireEvent(self.EVENT_TYPES.start, {start_time: begin_time});
 
-        // Signal the tools controller
-        toolsController.startRecording();
-
-        // Execute the callback
-        callback();
+	//TODO: should this be in the if(record_audio) block?
+	//TODO: should these also be listeners?
+        audioTM.prepareShift(begin_time);
+	//TODO
+	//updateButtons(); // from lecture_controller
         return true;
     };
+    evt_mgr.addEventListener(EVENTS.start_recording, startRecording);
 
     // Stop recording and notify other controllers
-    // Returns true and executes callback if it succeeds
-    self.stopRecording = function(callback) {
+    // Returns true if it succeeds
+    var stopRecording = function() {
 
-        // Only stop if we are currently recording
-        if (!isRecording) {
+        if (!recording || !timer.stopTiming()) {
             return false;
         };
 
-        // Stop the timing and exit if it fails
-        if (!timeController.stopTiming()) {
-            return false;
+        recording = false;
+
+	var begin_time = timer.getBeginTime();
+        var end_time = timer.getEndTime();
+        var record_duration = end_time - begin_time;
+
+        if (record_visuals) {	    
+            visualTM.completeShift(record_duration);
+	    self.fireEvent(self.EVENT_TYPES.stop_visual,
+			   {start_time: begin_time, end_time: end_time});
         };
 
-        isRecording = false;
-
-        var endTime = timeController.getEndTime();
-        var recordDuration = endTime - timeController.getBeginTime();
-
-        // Notify controllers depending on the recording types 
-        if (isRecordingVisuals) {  // visuals
-            visualsController.selection  = [];
-
-            var currentSlide = visualsController.currentSlide();
-
-            currentSlide.setDuration(currentSlide.getDuration() + recordDuration);
-
-            TimeManager.getVisualInstance().shiftAfterBy(24*60*60*1000, -24*60*60*1000 + recordDuration);
+        if (record_audio) {	    
+	    //TODO
+	    //enableEditUI(); // from audio_controller
+	    self.fireEvent(self.EVENT_TYPES.stop_audio,
+			   {start_time: begin_time, end_time: end_time});
         };
 
-        if (isRecordingAudio) {  // audio
-            audioController.stopRecording(endTime);
-        };
+	self.fireEvent(self.EVENT_TYPES.stop,
+		       {start_time: begin_time, end_time: end_time});
+        audioTM.completeShift(record_duration);
+        undoManager.endHierarchy("recording");
 
-        TimeManager.getAudioInstance().shiftAfterBy(24*60*60*1000, -24*60*60*1000 + recordDuration);
-        retimerController.addConstraint(endTime, ConstraintTypes.Automatic);
-        retimerController.pruneAutomaticConstraints();
-        retimerController.redrawConstraints();
+        // TODO
+	//updateButtons(); // from lecture_controller
 
-        // Signal the tools controller
-        toolsController.stopRecording();
-
-        // End the undo hierarchy so that an undo will undo the entire recording
-        undoManager.endGrouping();
-
-        // Execute the callback
-        callback();
         return true;
     };
+    evt_mgr.addEventListener(EVENTS.stop_recording, stopRecording);
+  
 
-    // When undoing or redoing a recording, the time should also revert back to 
-    // the previous time. This function helps achieve that by wrapping around
-    // a call to the time controller and the undo manager.
-    var changeTime = function(time) {
+    evt_mgr.addEventListener(EVENTS.start_recording, function(e) {
+	view.update(true);
+    });
+    evt_mgr.addEventListener(EVENTS.stop_recording, function(e) {
+	view.update(false);
+    });
 
-        // Create an undo call to revert to the previous time
-        undoManager.registerUndoAction(self, changeTime, [timeController.getTime()]);
-
-        // Update the time
-        timeController.updateTime(time);
-    };
 
     return self;
 }

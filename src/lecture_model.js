@@ -1,71 +1,54 @@
+"use strict";
 // Lecture model object
 // Contains the models for the visuals, audio, and retimer
-'use strict';
-
 var LectureModel = function() {
-    var self = this;
-
-    var visualsModel = null;
-    var audioModel = null;
-    var retimerModel = null;
-
-    var init = function() {
-        TimeManager.getVisualInstance().clear();
-        TimeManager.getAudioInstance().clear();
-
-        visualsModel = new VisualsModel(800, 500);
-        audioModel = new AudioModel();
-        retimerModel = new RetimerModel();
-    };
-
-    this.getVisualsModel = function() { return visualsModel; }
-    this.getAudioModel = function() { return audioModel; }
-    this.getRetimerModel = function() { return retimerModel; }
-
-    this.setVisualsModel = function(newVisualsModel) {
-	var oldModel = visualsModel;
-	undoManager.add(function() { self.setVisualsModel(oldModel); });
-	visualsModel = newVisualsModel;
-    };
-    this.setAudioModel = function(newAudioModel) {
-	var oldModel = audioModel;
-	undoManager.add(function() { self.setAudioModel(oldModel); });
-	audioModel = newAudioModel;
-    };
-    this.setRetimerModel = function(newRetimerModel) {
-	var oldModel = retimerModel;
-	undoManager.add(function() { self.setRetimerModel(oldModel); });
-	retimerModel = newRetimerModel;
-    };
-
-    // Get the duration of the lecture in milliseconds, which is the max duration of the audio and visuals
-    this.getLectureDuration = function() {
-        return Math.max(audioModel.getDuration(), retimerModel.getAudioTime(visualsModel.getDuration()));
-    };
-
-    // Loading the model from JSON
-    this.loadFromJSON = function(json_object) {
-        TimeManager.getVisualInstance().clear();
-        TimeManager.getAudioInstance().clear();
-
-        visualsModel = VisualsModel.loadFromJSON(json_object['visuals_model']);
-        audioModel = AudioModel.loadFromJSON(json_object['audio_model']);
-        retimerModel = RetimerModel.loadFromJSON(json_object['retimer_model']);
+    var self = {};
+    
+    //TODO: stuff that's currently in lecture view should action be in
+    // visuals view?
+    
+    //TODO: should these be accessors? Esp. so undo manager can tell they've
+    // been changed with loadFromJSON?
+    self.timer = Timer();
+    self.timeline = Timeline(self);
+    self.visuals = new VisualsModel(self);
+    self.renderer = Renderer(self);
+    self.retimer = new RetimerModel(self);
+    ThumbnailsModel(self);
+    self.audio = new AudioModel(self);
+    self.is_recording = Accessor(false);
+    
+    LectureController(self);
+    
+    //TODO: What if there are multiple open lectures in the future?
+    //  Should have specific instance of TimeManager, rather than
+    //  changing the entire class/prototype
+    TimeManager.getVisualManager().clear();
+    TimeManager.getAudioManager().clear();
+    
+    // Get the duration of the lecture in milliseconds, which is the max
+    // duration of the audio and slides
+    self.getDuration = function() {
+	var audio_duration = self.audio.getDuration();
+	var visual_duration = self.visuals.getDuration();
+	// Change the visual_duration into audio time
+	visual_duration = self.retimer.getAudioTime(visual_duration);
+        return Math.max(audio_duration, visual_duration);
     };
 
     // Saving the model to JSON
-    this.saveToJSON = function() {
-        var json_object = {
-            visuals_model: visualsModel.saveToJSON(),
-            audio_model: audioModel.saveToJSON(),
-            retimer_model: retimerModel.saveToJSON()
+    self.saveToJSON = function() {
+        return {
+            visuals: self.visuals.saveToJSON(),
+	    visuals: self.visuals.saveToJSON(),
+	    audio: self.audio.saveToJSON(),
+	    retimer: self.retimer.saveToJSON()
         };
-
-        console.log(JSON.stringify(json_object));
-
-        return json_object;
     };
 
-    // Initialize
-    init();
+    self.loadFromJSON = function(json_object) {
+	self.visuals = VisualsModel.loadFromJSON(json_object.visuals);
+	self.audio = AudioModel.loadFromJSON(json_object.audio);
+	self.retimer = RetimerModel.loadFromJSON(json_object.retimer);
+    };
 };

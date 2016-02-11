@@ -3,7 +3,7 @@
 // The responsibility of actually modifying the visuals is delegated to the visuals controller.
 "use strict";
 
-var ToolsController = function(visuals_controller, globalState) {
+var ToolsController = function(visuals_controller,  recordingController, lecture) {
     var self = this;
 
     var visualsController = null;
@@ -71,6 +71,7 @@ var ToolsController = function(visuals_controller, globalState) {
         // Hide the editing tools
         $('#'+editingToolsContainerID).addClass(hiddenClass);
     };
+    recordingController.addEventListener(this.startRecording, "start", "general");
 
     this.stopRecording = function() {
 
@@ -83,6 +84,7 @@ var ToolsController = function(visuals_controller, globalState) {
         // Hide the recording tools
         $('#'+recordingToolsContainerID).addClass(hiddenClass);
     };
+    recordingController.addEventListener(this.stopRecording, "stop", "general");
 
     this.startPlayback = function() {
         // TODO
@@ -128,51 +130,52 @@ var ToolsController = function(visuals_controller, globalState) {
         switch (tool) {
 
             // For the canvas related tools, set the tool and then activate it
-        	case penTool:
-            case highlightTool:
-            case selectTool:
-                // In recording mode, save the tool as the recording tool,
-                // and in editing mode, save the tool as the editing tool.
-                if (globalState.isRecording()) {
-                    recordingTool = tool;
-                } else {
-                    editingTool = tool;
-                };
-                // Activate the tool
-                activateCanvasTool();
-                break;
+        case penTool:
+        case highlightTool:
+        case selectTool:
+            // In recording mode, save the tool as the recording tool,
+            // and in editing mode, save the tool as the editing tool.
+            if (lecture.is_recording.get()) {
+                recordingTool = tool;
+            } else {
+                editingTool = tool;
+            };
+            // Activate the tool
+            activateCanvasTool();
+            break;
 
-            case addSlideTool:
-                visualsController.addSlide();
-                break;
+        case addSlideTool:
+            visualsController.addSlide();
+            break;
 
-            case deleteSlideTool:
-                visualsController.deleteSlide(visualsController.currentSlide());
-                break;
+        case deleteSlideTool:
+            visualsController.deleteSlide(visualsController.currentSlide());
+            break;
 
-        	case widthTool:
-                // Do nothing. Width is handled by widthChanged() and registered to another function.
-                break;
+        case widthTool:
+            // Do nothing. Width is handled by widthChanged() and registered to another function.
+            break;
 
-            case colorTool:
-                // Do nothing. Color is handled by colorChanged() and registered to another function.
-                break;
+        case colorTool:
+            // Do nothing. Color is handled by colorChanged() and registered to another function.
+            break;
 
-        	case deleteTool:
-                if (globalState.isRecording()) {
-                    visualsController.recordingDeleteSelection();
-                } else {
-                    visualsController.editingDeleteSelection();
-                };
-        		break;
+        case deleteTool:
+	    //TODO: switch these over to VisualsSelection
+            if (lecture.is_recording.get()) {
+                visualsController.recordingDeleteSelection();
+            } else {
+                visualsController.editingDeleteSelection();
+            };
+            break;
 
-            case redrawTool:
-                // TODO
-                break;
+        case redrawTool:
+            // TODO
+            break;
 
-        	default:
-        		console.error('Unrecognized tool clicked, recording tools');
-        		console.error(tool);
+        default:
+            console.error('Unrecognized tool clicked, recording tools');
+            console.error(tool);
         };
 	undoManager.endHierarchy("userAction");
     };
@@ -196,25 +199,25 @@ var ToolsController = function(visuals_controller, globalState) {
         visualsController.canvas.off('touchend');
         // In recording mode, activate the recording tool,
         // and in editing mode, activate the editing tool.
-        var toolToActivate = ( globalState.isRecording() ? recordingTool : editingTool );
+        var toolToActivate = ( lecture.is_recording.get() ? recordingTool : editingTool );
         console.log('tool to activate: ' + toolToActivate);
 
         // Register the callback depending on which tool is active
         switch (toolToActivate) {
-            case penTool:
-                visualsController.canvas.on('mousedown', drawMouseDown);
-                visualsController.canvas.on('touchstart', drawMouseDown);
-                break;
-            case highlightTool:
-                visualsController.canvas.on('mousedown', drawMouseDown);
-                visualsController.canvas.on('touchstart', drawMouseDown);
-                break;
-            case selectTool:
-                visualsController.canvas.on('mousedown', selectMouseDown);
-                visualsController.canvas.on('touchstart', selectMouseDown);
-                break;
-            default:
-                console.error('tool is not a canvas tool and cannot be made active: ' + tool);
+        case penTool:
+            visualsController.canvas.on('mousedown', drawMouseDown);
+            visualsController.canvas.on('touchstart', drawMouseDown);
+            break;
+        case highlightTool:
+            visualsController.canvas.on('mousedown', drawMouseDown);
+            visualsController.canvas.on('touchstart', drawMouseDown);
+            break;
+        case selectTool:
+            visualsController.canvas.on('mousedown', selectMouseDown);
+            visualsController.canvas.on('touchstart', selectMouseDown);
+            break;
+        default:
+            console.error('tool is not a canvas tool and cannot be made active: ' + tool);
         };
     };
 
@@ -236,8 +239,8 @@ var ToolsController = function(visuals_controller, globalState) {
         // touch event
         if(isNaN(event.pageX)){
             var touches = event.originalEvent.changedTouches;
-
-            visualsController.currentVisual = new StrokeVisual(visualsController.currentVisualTime(), new VisualProperty(strokeColor, strokeWidth));
+	    console.log("here");
+            visualsController.currentVisual = new StrokeVisual(visualsController.currentVisualTime(), new VisualProperties(strokeColor, strokeWidth));
             
             for (var i=0; i < touches.length; i++) {
                 visualsController.currentVisual.getVertices().push(getTouchPoint(touches[i].pageX, touches[i].pageY));
@@ -245,8 +248,8 @@ var ToolsController = function(visuals_controller, globalState) {
         }
         else{
             // Create a new stroke visual and set it to the current visual
-            visualsController.currentVisual = new StrokeVisual(visualsController.currentVisualTime(), new VisualProperty(strokeColor, strokeWidth));
-            visualsController.currentVisual.getVertices().push(getCanvasPoint(event));
+            visualsController.currentVisual = new StrokeVisual(visualsController.currentVisualTime(), new VisualProperties(strokeColor, strokeWidth));
+            visualsController.currentVisual.vertices.push(getCanvasPoint(event));
         }
 
 
@@ -260,7 +263,6 @@ var ToolsController = function(visuals_controller, globalState) {
 
     // SELECT: When the mouse is down and moved, append a new vertext to the current visual
     var drawMouseMove = function(event) {
-        console.log('touchmove');
         event.preventDefault();
         event.stopPropagation();
 
@@ -269,13 +271,13 @@ var ToolsController = function(visuals_controller, globalState) {
             var touches = event.originalEvent.changedTouches;
 
             for (var i=0; i < touches.length; i++) {
-                visualsController.currentVisual.appendVertex(getTouchPoint(touches[i].pageX, touches[i].pageY));
+                visualsController.currentVisual.vertices.push(getTouchPoint(touches[i].pageX, touches[i].pageY));
             };
         }
         // mouse event
         else{
             // Append a vertex to the current visual
-            visualsController.currentVisual.appendVertex(getCanvasPoint(event));            
+            visualsController.currentVisual.vertices.push(getCanvasPoint(event));            
         }
 
     };
@@ -287,7 +289,7 @@ var ToolsController = function(visuals_controller, globalState) {
         event.stopPropagation();
 
         // Add the current visual to then controller and then reset it to null
-        visualsController.addVisual(visualsController.currentVisual);
+        lecture.addVisual(visualsController.currentVisual);
         visualsController.currentVisual = null;
 
         // Unregister the mouse move and mouse up handlers
@@ -304,11 +306,12 @@ var ToolsController = function(visuals_controller, globalState) {
 
         // Hide the selection box and reset the size to 1
         $('#'+selectionBoxID).addClass(hiddenClass)
-                             .css('width', 1)
-                             .css('height', 1);
+            .css('width', 1)
+            .css('height', 1);
 
+	//TODO: temp commented out, definitely doesn't belong here
         // Turn off events for the overlay so that the selection box creation can work properly
-        visualsController.canvasOverlay.css('pointer-events', 'none');
+        //visualsController.canvasOverlay.css('pointer-events', 'none');
     };
 
     // SELECT: When the mouse is pressed down, activate the selection box and the mouse move and mouse up handlers
@@ -358,15 +361,15 @@ var ToolsController = function(visuals_controller, globalState) {
         else{
             coord = getCanvasPoint(event);
         }
-        var left = Math.min(coord.getX(), selectionBeginPoint.getX());
-        var right = Math.max(coord.getX(), selectionBeginPoint.getX());
-        var top = Math.min(coord.getY(), selectionBeginPoint.getY());
-        var bottom = Math.max(coord.getY(), selectionBeginPoint.getY());
+        var left = Math.min(coord.getX(), selectionBeginPoint.x.get());
+        var right = Math.max(coord.getX(), selectionBeginPoint.x.get());
+        var top = Math.min(coord.getY(), selectionBeginPoint.y.get());
+        var bottom = Math.max(coord.getY(), selectionBeginPoint.y.get());
         $('#'+selectionBoxID).removeClass(hiddenClass)
-                            .css('left', left)
-                            .css('top', top)
-                            .css('width', right - left)
-                            .css('height', bottom - top);
+            .css('left', left)
+            .css('top', top)
+            .css('width', right - left)
+            .css('height', bottom - top);
 
         // Clear the selection every time, but not the box
         visualsController.selection = [];
@@ -400,10 +403,11 @@ var ToolsController = function(visuals_controller, globalState) {
             if ( nVert >= visual.getVertices().length / 2 ) {
                 visualsController.selection.push(visual);
             };
+	    
         };
 
         // If it is not during a recording, then we manually need to tell the controller to redraw
-        if (!globalState.isRecording()) {
+        if (!lecture.is_recording()) {
             visualsController.drawVisuals(currentTime);
         };
 
@@ -450,7 +454,7 @@ var ToolsController = function(visuals_controller, globalState) {
         var transform_matrix = calculateTranslateMatrix(originalTranslatePosition, new_position);
 
         // Apply the matrix to the selected visuals
-        if (globalState.isRecording()) {
+        if (lecture.is_recording.get()) {
             visualsController.recordingSpatialTransformSelection(transform_matrix);
         } else {
             visualsController.editingSpatialTransformSelection(transform_matrix);
@@ -469,7 +473,7 @@ var ToolsController = function(visuals_controller, globalState) {
         var transform_matrix = calculateScaleMatrix(ui.originalPosition, ui.originalSize, ui.position, ui.size);
 
         // Apply the matrix to the selected visuals
-        if (globalState.isRecording()) {
+        if (lecture.is_recording.get()) {
             visualsController.recordingSpatialTransformSelection(transform_matrix);
         } else {
             visualsController.editingSpatialTransformSelection(transform_matrix);
@@ -484,7 +488,7 @@ var ToolsController = function(visuals_controller, globalState) {
         // Changes the width of the selection if there is a selection
         if (visualsController.selection.length !== 0) {
 
-            if (globalState.isRecording()) {
+            if (lecture.is_recording.get()) {
                 var transform = new VisualPropertyTransform('width', new_width, visualsController.currentVisualTime());
                 visualsController.recordingPropertyTransformSelection(transform);
 
@@ -501,7 +505,7 @@ var ToolsController = function(visuals_controller, globalState) {
 
         // Change the color of the drawing tool
         var new_color = new_spectrum_color.toHexString();
-        if (globalState.isRecording()) {
+        if (lecture.is_recording.get()) {
             strokeColor = new_color;
         };
 
@@ -509,7 +513,7 @@ var ToolsController = function(visuals_controller, globalState) {
         // This check needs to happen in order to fix the problem with double events being triggered.
         if (visualsController.selection.length !== 0) {
 
-            if (globalState.isRecording()) {
+            if (lecture.is_recording.get()) {
                 var transform = new VisualPropertyTransform('color', new_color, visualsController.currentVisualTime());
                 visualsController.recordingPropertyTransformSelection(transform);
             } else {
@@ -600,7 +604,7 @@ var ToolsController = function(visuals_controller, globalState) {
                                 [original_position.left + original_size.width,  original_position.top,  1], 
                                 [original_position.left + original_size.width,  original_position.top + original_size.height,   1], 
                                 [original_position.left,                        original_position.top + original_size.height,   1]
-                            ];  
+                             ];  
 
         // Apply the scale matrix to the original box to get a purely scaled box
         var newBoxVertexArray = math.multiply(boxVertexArray, scaleMatrix).valueOf();
@@ -616,29 +620,25 @@ var ToolsController = function(visuals_controller, globalState) {
             shiftY = newBoxVertexArray[0][1] - boxVertexArray[0][1];
 
         } else if (original_position.left + original_size.width === new_position.left + new_size.width && 
-            original_position.top === new_position.top) {  // top right
+		   original_position.top === new_position.top) {  // top right
 
             shiftX = newBoxVertexArray[1][0] - boxVertexArray[1][0];
             shiftY = newBoxVertexArray[1][1] - boxVertexArray[1][1];
 
         } else if (original_position.left + original_size.width === new_position.left + new_size.width &&
-            original_position.top + original_size.height === new_position.top + new_size.height) {  // bottom right
+		   original_position.top + original_size.height === new_position.top + new_size.height) {  // bottom right
 
             shiftX = newBoxVertexArray[2][0] - boxVertexArray[2][0];
             shiftY = newBoxVertexArray[2][1] - boxVertexArray[2][1];
 
         } else if (original_position.left === new_position.left &&
-            new_position.top + new_size.height === new_position.top + new_size.height) {  // bottom left
+		   new_position.top + new_size.height === new_position.top + new_size.height) {  // bottom left
 
             shiftX = newBoxVertexArray[3][0] - boxVertexArray[3][0];
             shiftY = newBoxVertexArray[3][1] - boxVertexArray[3][1];
 
         } else {  // No corner stayed the same
             console.error('no corner remained the same after scaling/translating');
-            console.error(original_position);
-            console.error(original_size);
-            console.error(new_position);
-            console.error(new_size);
         };
 
         // Calculate the translation matrix necessary to negate the anchor point shift.

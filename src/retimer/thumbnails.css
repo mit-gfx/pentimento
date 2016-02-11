@@ -1,0 +1,12 @@
+#thumbnails {
+    margin-top: 5px;
+}
+
+canvas.thumbnail {
+    box-sizing:border-box;
+    -moz-box-sizing:border-box;
+    -webkit-box-sizing:border-box;
+    border: 1px solid black;
+    margin: 0;
+    padding: 0;
+}

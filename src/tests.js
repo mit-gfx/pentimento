@@ -55,7 +55,7 @@ function makeTestVisuals() {
 }
 
 function makeTestVisual(input, time) {
-	var property = new VisualProperty(input.properties.color, input.properties.width);
+	var property = new VisualProperties(input.properties.color, input.properties.width);
 	var dummy = new StrokeVisual(time, property);
 	var vertices = [];
 	for(var i in input.vertices) {

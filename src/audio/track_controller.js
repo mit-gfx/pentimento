@@ -1,319 +1,152 @@
-///////////////////////////////////////////////////////////////////////////////
-// Audio Track Controller
-//
-// Controller for the DOM audio track inside the DOM track container
-// Handles the user input passed on from the segments into and modifies the audio track
-// Responsible for drawing the audio track and displaying updates.
-// Controls playback through segment playback.
 "use strict";
-var AudioTrackController = function(track, audioController) {
+var AudioTrackController = function(track, parent_id, lecture) {
+    var self = {};
 
-    ///////////////////////////////////////////////////////////////////////////////
-    // Member Variables
-    ///////////////////////////////////////////////////////////////////////////////
+    var evt_mgr = TrackEventManager(track.getID());
+    var selection = track.segment_selection;
 
-    var self = this;  // Use self to refer to this in callbacks
-    var parentAudioController = null;
-    var audioTrack = null;  // audio_track from the model
-    var segmentControllers = [];  // Controllers for each of the segments in the track
-    var isPlayingBack = false;  // Indicates playback status
-    var trackID = null;  // HTML ID used to identify the track
-    var trackClass = "audio_track";
-    var focusClass = "focus";  // Class added to elements with focus
-    var lastValidPositionLeft = -1;  // Used to keep track of the last valid segment position when dragging or cropping.
-    var lastValidWidth = -1;  // Used to keep track of the last valid segment width when cropping.
-    var cropLeftSide = null;  // true if the left side is being cropped. Set at the beginning of each crop
-
-    ///////////////////////////////////////////////////////////////////////////////
-    // Initialization
-    ///////////////////////////////////////////////////////////////////////////////
+    // Segment Dragging    
+    var last_x, orig_x, offset, segment_index, segment_id;
     
-    audioTrack = track;
-    parentAudioController = audioController;
-
-    // Create a new track ID of the form
-    // 'track#' where '#' is a positive integer 
-    trackID = 'track' + (AudioTrackController.counter++);
-
-
-    ///////////////////////////////////////////////////////////////////////////////
-    // Getter Methods
-    ///////////////////////////////////////////////////////////////////////////////
-
-    // Get the ID of the track
-    this.getID = function() {
-        return trackID;
+    var initDrag = function(e) {
+	last_x = e.x;
+	orig_x = last_x;
+	segment_id = e.segment_id;
+	segment_index = track.indexBySegmentID(segment_id);
+	offset = last_x - e.segment_start_x;
     };
+    evt_mgr.addEventListener(evt_mgr.EVENT_TYPES.dragging.start, initDrag);
 
-    // Get the length of the track in milliseconds
-    this.getLength = function() {
-        return audioTrack.endTime();
+    var drag = function(e) {
+	var delta_x = e.x - orig_x;
+	var delta_t_aud = lecture.timeline.pixelsToAudioTime(delta_x);
+	if (track.canShiftSegment(segment_index, delta_t_aud)) {
+	    view.manuallyChangeSegment(segment_id, e.x - last_x);
+	    last_x = e.x;
+	}
     };
+    evt_mgr.addEventListener(evt_mgr.EVENT_TYPES.dragging.update, drag);
 
-    // Get the audio track
-    this.getAudioTrack = function() {
-        return audioTrack;
+    var endDrag = function(e) {
+	drag(e);
+
+	var delta_x = last_x - orig_x;
+	var delta_t_aud = lecture.timeline.pixelsToAudioTime(delta_x);
+	track.shiftSegment(segment_index, delta_t_aud);
     };
+    evt_mgr.addEventListener(evt_mgr.EVENT_TYPES.dragging.stop, endDrag);
 
-    // Get the parent audio controller
-    this.getParentAudioController = function() {
-        return parentAudioController;
+
+    // Segment Cropping
+    var crop_from_start, last_x, orig_x, segment_index, segment_id;
+
+    var initCrop = function(e) {
+	orig_x = e.x;
+	last_x = orig_x;
+	crop_from_start = e.crop_from_start;
+	segment_id = e.segment_id;
+	segment_index = track.indexBySegmentID(segment_id);
     };
+    evt_mgr.addEventListener(evt_mgr.EVENT_TYPES.cropping.start, initCrop);
 
-
-    ///////////////////////////////////////////////////////////////////////////////
-    // Managing audio methods
-    /////////////////////////////////////////////////////////////////////////////// 
-
-    // Insert a new segment into the track
-    this.insertSegment = function(newSegment) {
-        var insert_result = audioTrack.insertSegment(newSegment);
-        audioController.draw();
+    var updateCrop = function(e) {
+	var delta_x = e.x - orig_x;
+	var delta_t_aud = lecture.timeline.pixelsToAudioTime(delta_x);
+	var can_crop;
+	if (crop_from_start) {
+	    can_crop = track.canChangeSegmentTimes(segment_index,
+							  delta_t_aud, 0);
+	} else {
+	    can_crop = track.canChangeSegmentTimes(segment_index, 0,
+							  delta_t_aud);
+	}
+	if (can_crop) {
+	    var delta = last_x - e.x;
+	    if (crop_from_start) {
+		view.manuallyChangeSegment(segment_id, -delta, delta);
+		view.manuallyChangeWavesurfer(segment_id, delta);
+	    } else {
+		view.manuallyChangeSegment(segment_id, 0, -delta);
+	    }
+	    last_x = e.x;
+	}
     };
+    evt_mgr.addEventListener(evt_mgr.EVENT_TYPES.cropping.update, updateCrop);
 
-    // Remove a segment from the track
-    this.removeSegment = function(segment) {
-        audioTrack.removeSegment(segment);
-        audioController.draw();
+    var endCrop = function(e) {
+	updateCrop(e);
+	var delta_x = last_x - orig_x;
+	var delta_t_aud = lecture.timeline.pixelsToAudioTime(delta_x);
+	if (crop_from_start) {
+	    track.changeSegmentTimes(segment_index, delta_t_aud, 0);
+	} else {
+	    track.changeSegmentTimes(segment_index, 0, delta_t_aud);
+	}
     };
+    evt_mgr.addEventListener(evt_mgr.EVENT_TYPES.cropping.stop, endCrop);
+	    
+	
+    // Segment Selecting
+    var orig_x, orig_id, last_id, last_x, last_dir;
 
-    
-    // Callback for when the segment UI div starts to be dragged.
-    // Sets initial internal variables.
-    this.segmentDragStart = function(event, ui, segmentController) {
-        // Sets the internal variable for the last valid position.
-        lastValidPositionLeft = ui.originalPosition.left;
+    var initSelection = function(e) {
+	orig_x = e.x;
+	last_x = e.x;
+	orig_id = e.segment_id;
+	last_id = e.segment_id;
+	if (e.segment_id != null) {
+	    selection.add(e.segment_id);
+	}
     };
+    evt_mgr.addEventListener(evt_mgr.EVENT_TYPES.selecting.start,
+			     initSelection);
 
-    // Callback for when the segment UI div is being dragged.
-    // Tests whether or not the drag is valid.
-    // If the dragging is valid, it does nothing, allowing the segment UI div to be dragged to the new position.
-    // If the dragging is invalid, it sets the segment UI div back to the last valid position.
-    this.segmentDragging = function(event, ui, segmentController) {
-        // We assume that the shift will be valid because of the snapping feature of jQuery draggable
-        // Shift the segment by the amount dragged
-        var audioSegment = segmentController.getAudioSegment();
-        var shiftMilli = parentAudioController.pixelsToMilliseconds(ui.position.left) - audioSegment.start_time;
-        var shiftResult = audioTrack.canShiftSegment(audioSegment, shiftMilli);
+    //TODO: selection behavior could be more intutive in some cases, and
+    //    could use better gui visualization (change cursor, show rect maybe?)
+    var updateSelection = function(e) {
+	var segment_ids = []
+	// Just entered a segment (except for orig seg, which stays selected)
+	if (e.segment_id != null && e.segment_id != last_id &&
+	    e.segment_id != orig_id) {
+	    segment_ids.push(e.segment_id);
+	}
+	// Just exited a segment (except for the original segment)
+	if (last_id != null && last_id != e.segment_id && last_id != orig_id) {
+	    segment_ids.push(last_id);
+	}
 
-        // If the shift is valid, then update the last valid position
-        if (shiftResult === true) {
-            lastValidPositionLeft = ui.position.left;
-        }
-        // Else reset the segment UI div to the last valid position
-        else {
-            ui.position.left = lastValidPositionLeft;
-        };
+	// Check if the direction implies selection or deselection
+	if (Math.sign(e.x - last_x) == Math.sign(e.x - orig_x)) {
+	    for (var i = 0; i < segment_ids.length; i++) {
+		var segment_id = segment_ids[i];
+		if (!selection.has(segment_id)) {
+		    selection.add(segment_id);
+		}
+	    }
+	} else {
+	    for (var i = 0; i < segment_ids.length; i++) {
+		var segment_id = segment_ids[i];
+		if (selection.has(segment_id)) {
+		    selection.remove(segment_id);
+		}
+	    }	    
+	}
+		
+	last_id = e.segment_id;
+	last_x = e.x;
     };
+    evt_mgr.addEventListener(evt_mgr.EVENT_TYPES.selecting.update,
+			     updateSelection);
+    evt_mgr.addEventListener(evt_mgr.EVENT_TYPES.selecting.stop,
+			     updateSelection);
 
-    // Callback for when the segment UI div has finished being dragged.
-    // Actually performs the drag on the model.
-    this.segmentDragFinish = function(event, ui, segmentController) {
-        var audioSegment = segmentController.getAudioSegment();
-        var shiftMilli = parentAudioController.pixelsToMilliseconds(ui.position.left) - audioSegment.start_time;
-
-        // Perform the shift
-        var shiftResult = audioTrack.shiftSegment(audioSegment, shiftMilli);
-
-        // If the shift does not succeed, then there is a problem
-        if (shiftResult !== true) {
-            console.error("Shift error (" + (typeof shiftResult) + "): " + shiftResult);
-        };
-
-        // Reset the value of the last valid position
-        lastValidPositionLeft = -1;
+    var clearSelection = function(e) {
+	selection.clear();
     };
-
-    // Callback for when the segment UI div starts to be cropped.
-    // Sets the initial internal variables.
-    this.segmentCropStart = function(event, ui, segmentController) {
-
-        // Figure out whether the left or right side is being cropped by looking at the class of the element
-        cropLeftSide = event.toElement.classList.contains("ui-resizable-w");
-
-        // Keep track of the last valid position and size
-        lastValidPositionLeft = ui.originalPosition.left;
-        lastValidWidth = ui.originalSize.width;
-    };
-
-    // Callback for when the segment UI div is being cropped.
-    // If the cropping is valid, it does nothing.
-    // If the cropping is invalid, it sets the UI div back to the original size and position.
-    this.segmentCropping = function(event, ui, segmentController) {
-        var audioSegment = segmentController.getAudioSegment();
-
-        // Crop amount should be positive if expanding, and negative if contracting
-        var cropMilli = parentAudioController.pixelsToMilliseconds(ui.size.width - ui.originalSize.width);
-        var cropResult = audioTrack.canCropSegment(audioSegment, cropMilli, cropLeftSide);
-        // console.log("cropMilli: " + cropMilli);
-        // console.log("cropResult: " + cropResult);
-
-        // If the crop was valid, then update the last valid position and size.
-        // Also update the wavesurfer container view to appear consistent with the crop
-        if (cropResult === true) {
-
-            // Shift the wavesurfer container so that the wavesurfer is not moving along with the crop.
-            segmentController.shiftWavesurferContainer(lastValidPositionLeft - ui.position.left);
-
-            // Update the last valid position and size to the current UI parameters
-            lastValidPositionLeft = ui.position.left;
-            lastValidWidth = ui.size.width;
-                    // // Recalculate the size and position based on the new segment size
-        // ui.position.left = parentAudioController.millisecondsToPixels(audioSegment.start_time);
-        // ui.size.width = parentAudioController.millisecondsToPixels(audioSegment.lengthInTrack());
-        }
-        // Else, reset the position and size to the last valid parameters
-        else {
-            ui.position.left = lastValidPositionLeft;
-            ui.size.width = lastValidWidth;
-        };
-
-    };
-
-    // Callback for when the segment UI div has finished being cropped.
-    // The cropping should always be valid because the 'segmentCropping' callback
-    // only allows cropping to happen in valid ranges.
-    this.segmentCropFinish = function(event, ui, segmentController) {
-        var audioSegment = segmentController.getAudioSegment();
-
-        // Crop amount should be positive if expanding, and negative if contracting
-        var cropMilli = parentAudioController.pixelsToMilliseconds(ui.size.width - ui.originalSize.width);
-
-        // Perform the actual crop
-        var cropResult = audioTrack.cropSegment(audioSegment, cropMilli, cropLeftSide);
-
-        // If the crop result is not valid, then it is an error
-        if (cropResult !== true) {
-            console.error("Crop error (" + (typeof cropResult) + "): " + cropResult);
-        };
-
-        // Update the view so that it is consistent with the actual crop.
-        // This is necessary due to strange behavior with jQuery resizeable.
-        this.refreshView();
-
-        // Reset the value of the last valid position, size, and crop side
-        lastValidPositionLeft = -1;
-        lastValidWidth = -1;
-        cropLeftSide = null;
-    };
-
-    // Remove all segments that have focus
-    this.removeFocusedSegments = function() {
-        // Find the segments that have focus, and removes them from the model
-        // and also deletes their controllers
-        for (var i = 0; i < segmentControllers.length; i++) {
-            // Focused segments have the segmentFocusClass
-            if ( $('#'+segmentControllers[i].getID()).hasClass(focusClass) ) {
-                this.removeSegment(segmentControllers[i].getAudioSegment());
-            };
-        };
-    };
-
-    // Start the playback of the track at the specified time interval
-    // Stops the previous playback if there is on currently going.
-    // The time is specified in milliseconds. If the end time is not specified,
-    // playback goes until the end of the track.
-    this.startPlayback = function(startTime, endTime) {
-
-        if (isPlayingBack) {
-            this.stopPlayback();
-        }
-        isPlayingBack = true;
-
-        // TODO: stop at the end time if specified
-
-        // Play all of the segment controllers that are after the cursor.
-        for (var i = 0; i < segmentControllers.length; i++) {
-            var segmentController = segmentControllers[i];
-            var segment = segmentController.getAudioSegment();
-
-            // Get the delay in milliseconds from now until when the playback will occur
-            // Compute the start time of the audio (sometimes starts play in middle of segment)
-            var playbackDelay;
-            var trackStartTime;
-
-            // If the segment starts after the current start time, 
-            // delay by the difference in start time and start whenver the segment is supposed to start
-            if (segment.start_time >= startTime) {
-                playbackDelay = segment.start_time - startTime;
-                trackStartTime = segment.start_time;
-            }
-            // If the start time is in the middle of the segment, 
-            // start it at the given start time without delay
-            else if (segment.end_time > startTime) {
-                playbackDelay = 0;
-                trackStartTime = startTime;
-            }
-            // If the start time is after the entire segment
-            else {
-                // Don't even play this segment
-                continue;
-            };
-
-            // Set the playback on the segment controller with the specified delay
-            segmentController.startPlayback(playbackDelay, trackStartTime);
-        };
-    };
-
-    // Stop the playback of the track. Does nothing if the track is not playing.
-    this.stopPlayback = function() {
-
-        // Stop all of the audio segment controllers
-        for (var i = 0; i < segmentControllers.length; i++) {
-            segmentControllers[i].stopPlayback();
-        };
-    };
+    evt_mgr.addEventListener(evt_mgr.EVENT_TYPES.clear_select, clearSelection);
 
 
-    ///////////////////////////////////////////////////////////////////////////////
-    // Drawing methods
-    /////////////////////////////////////////////////////////////////////////////// 
-
-    // Refresh the view to reflect the state of the model (audioTrack)
-    this.refreshView = function() {
-
-        // Refresh each of the segments
-        for (var i = 0; i < segmentControllers.length; i++) {
-            segmentControllers[i].refreshView();
-        };
-    };
-
-    // Draw a track into the parent jquery container
-    // Return the new jQuery track
-    this.draw = function(jqParent) {
-
-        // Create a new jquery track div
-        var jqTrack = $('<div></div>').attr({"id": trackID , "class": trackClass});
-
-        // Add the track to the parent
-        jqParent.append(jqTrack);
-
-        // Iterate over all audio segments in the track and create their controllers and
-        // use the controller to draw them.
-        segmentControllers = [];
-        for (var i = 0; i < audioTrack.getAudioSegments().length; i++) {
-            var segment = audioTrack.getAudioSegments()[i];
-
-            // Create and draw the new segment controller
-            var segment_controller = new AudioSegmentController(segment, self);
-            segmentControllers.push(segment_controller);
-
-            // Draw the segment into the parent and get the jquery object for that segment
-            var jqSegment = segment_controller.draw(jqTrack);
-        };
-
-        self.refreshView();
-
-        return jqTrack;
-    };
-
+    // Initialize the view
+    var view = TrackView(track, parent_id, lecture.timeline);
+    track.timeline.addEventListener(view.draw);
 };
-
-///////////////////////////////////////////////////////////////////////////////
-// Static Variables
-///////////////////////////////////////////////////////////////////////////////
-
-// Counter used for the ID
-AudioTrackController.counter = 0;
-
-

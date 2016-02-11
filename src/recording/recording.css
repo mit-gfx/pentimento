@@ -1,0 +1,13 @@
+#toggle-recording {
+    height: 35px;
+    background: no-repeat center center;
+    background-size: auto 100%;
+}
+
+#toggle-recording.start {
+    background-image: url("../icons/media_record.png");
+}
+
+#toggle-recording.stop {
+    background-image: url("../icons/media_playback_stop.png");
+}

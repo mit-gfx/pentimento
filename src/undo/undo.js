@@ -64,7 +64,11 @@ var getUndoManager = function(groupTypes, debug) {
         }
         // iterate through and call each listener subscribed to this event type
         for (var i = 0; i < listeners[type].length; i++) {
-            listeners[type][i]();
+            try {
+		listeners[type][i]();
+	    } catch(e) {
+		console.error(e.stack);
+	    }
         }
     };
 

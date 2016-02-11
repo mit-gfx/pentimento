@@ -70,11 +70,34 @@
     margin-top:5px;
 }
 
+.property-change {    
+    height: 25px;
+    max-width: 100%;
+    margin-top:5px;
+}
+
+.visuals-action {    
+    height: 25px;
+    max-width: 100%;
+    margin-top:5px;
+}
+
 #selectionBox {
     position: absolute;
     border: 1px solid red;
     cursor: move;
 }
+
+#selection-scale {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 25px;
+    height: 25px;
+    background: url("../icons/resize_handle.svg") no-repeat bottom right;
+    background-size: auto 100%;
+    cursor: nwse-resize;
+};
 
 #sketchpad .ui-resizable-handle {
     position: absolute;

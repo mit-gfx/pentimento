@@ -1,11 +1,4 @@
-#audio_container {
-    position: relative;
-    margin: 0;
-    margin-left: 10px;
-    padding: 0;
-}
-
-#audio_timeline {
+#timeline {
     position: relative;
     height: 400px;
     width: 1000px;
@@ -14,73 +7,47 @@
     /*disable text selection*/
     -moz-user-select: none; -webkit-user-select: none; -ms-user-select:none; user-select:none;
     margin: 0;
-    padding: 0;
+    margin-left: 10px;
+    padding: 0px 25px; /*TODO: this padding should match plot margins so that the playhead only appears on top of the plot */
 }
 
-/* Set the scrollbars to always visible in the timeline by
-    modifying the webkit scrollbar properties. Chrome and Safari only. */
-#audio_timeline::-webkit-scrollbar {
-    -webkit-appearance: none;
-}
-#audio_timeline::-webkit-scrollbar:vertical {
-    width: 11px;
-}
-#audio_timeline::-webkit-scrollbar:horizontal {
-    height: 11px;
-}
-#audio_timeline::-webkit-scrollbar-thumb {
-    border-radius: 8px;
-    border: 2px solid white; /* should match background, can't be transparent */
-    background-color: rgba(0, 0, 0, .5);
-}
-#audio_timeline::-webkit-scrollbar-track { 
-    background-color: #fff; 
-    border-radius: 8px; 
-} 
-
-#timeline_cursor {
-    position: absolute;
-    width: 0px;
-    height: inherit;
-    border-left: solid #79DFFF;
-    margin: 0;
-    padding: 0;
-}
-
-#audio_tracks_container {
+.audio-tracks-container {
     position: absolute;
     margin: 0;
     padding: 0;
+    width: 100%;
 }
 
-#gradation_container {
+#gradations {
     position: absolute;
     top: 0;
     left: 0;
     margin: 0;
     padding: 0;
+    height: 100%;
+    width: 100%; /* dummy initial width, will be changed to match lecture length */
+}
+
+#gradations-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
 }
 
 #playhead {
-    position: absolute;
-    height: 324px;
+    position: relative;
+    height: 100%;
     width: 10px;
     background-color: blue;
     cursor: move;
     margin: 0;
     padding: 0;
+    top: 0;
+    z-index: 1000;
 }
 
-div.timeline_plugin {
-    position: absolute;
-    left: 0;
-    width: 100%;
-    margin: 0;
-    padding: 0;
-}
-
-div.audio_track {
-    position: absolute;
+.audio-track {
     left: 0;
     height: 100px;
     width: 100%;
@@ -88,11 +55,11 @@ div.audio_track {
     padding: 0;
 }
 
-div.audio_segment {
+.audio-segment {
+    position: absolute;
     box-sizing: border-box;
     -moz-box-sizing: border-box;
     -webkit-box-sizing: border-box;
-    position: absolute;
     border-style: solid;
     border-color: black;
     border-width: 2px;
@@ -100,19 +67,19 @@ div.audio_segment {
     float: left;
     box-shadow: 0;
     transition: box-shadow .15s;
-    height: 100%;
+    height: 100px;
     overflow: hidden;
     margin: 0;
     padding: 0;
 }
 
-div.focus {
+.focus {
     border-style: outset;
     border-width: 4px;
     background-color: #DDEFFF;
 }
 
-div.segment_handle {
+.segment-drag {    
     position: absolute;
     top: 0px;
     left: 0px;
@@ -127,7 +94,25 @@ div.segment_handle {
     padding: 0;
 }
 
-div.wavesurfer_container {
+.segment-crop-start {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    width: 10px;
+    height: 100%;
+    cursor: ew-resize;
+}
+
+.segment-crop-end {
+    position: absolute;
+    top: 0px;
+    right: 0px;
+    width: 10px;
+    height: 100%;
+    cursor: ew-resize;
+}
+
+.wavesurfer-container {
     position: absolute;
     height: 90px;
     border-width: 0;
@@ -136,7 +121,7 @@ div.wavesurfer_container {
     padding: 0;
 }
 
-.audio_segment wave {
+.audio-segment wave {
     position: absolute;
     left:0;
     right: 0;
@@ -152,47 +137,18 @@ wave canvas {
     padding: 0;
 }
 
-.audio_segment.ui-draggable {
-    margin: 0;
-    padding: 0;
-}
-
-.audio_segment.ui-draggable-dragging {
+.audio-segment.ui-draggable-dragging {
     /*box-shadow: 0 0 3px #515151;*/
     box-shadow: 8px 10px 24px 0px rgba(0,0,0,0.75);
     margin: 0;
     padding: 0;
 }
 
-.audio_segment.ui-resizable {
-    margin: 0;
-    padding: 0;
-}
-
-.audio_segment.ui-resizable-resizing {
-    margin: 0;
-    padding: 0;
-}
-
-.audio_segment .ui-resizable-handle {
-    height: 100%;
-    width: 8px;
-    position: absolute;
-    font-size: 0.1px;
-}
-.audio_segment .ui-resizable-w {
-    cursor: w-resize;
-}
-.audio_segment .ui-resizable-e {
-    cursor: e-resize;
-}
-
-
-#audio_controls {
+#audio-controls {
     margin-left: 10px;
 }
 
-.audio_button{
+.audio-button{
     background: #3498db;
     background-image: -webkit-linear-gradient(top, #3498db, #2980b9);
     background-image: -moz-linear-gradient(top, #3498db, #2980b9);
@@ -212,7 +168,7 @@ wave canvas {
     vertical-align: center;
     height: 40px;
 }
-.audio_button:hover {
+.audio-button:hover {
     background: #3cb0fd;
     background-image: -webkit-linear-gradient(top, #3cb0fd, #3498db);
     background-image: -moz-linear-gradient(top, #3cb0fd, #3498db);
@@ -222,7 +178,7 @@ wave canvas {
     text-decoration: none;
 }
 
-.center_buttons{
+.center-buttons{
     display: inline-block;
     vertical-align: top;
     text-align: center;

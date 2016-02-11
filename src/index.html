@@ -6,12 +6,14 @@
     <link rel="stylesheet" type="text/css" href="main.css">
     <link rel="stylesheet" type="text/css" href="visuals/visuals.css">
     <link rel="stylesheet" type="text/css" href="audio/audio.css">
+    <link rel="stylesheet" type="text/css" href="recording/recording.css">
     <link rel="stylesheet" type="text/css" href="retimer/retimer.css" />
+    <link rel="stylesheet" type="text/css" href="retimer/thumbnails.css" />
     <link rel='stylesheet' type="text/css" href='external/spectrum/spectrum.css' />
 
-    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
-    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.3/jquery-ui.min.js"></script>
-    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/1.5.2/math.min.js"></script>
+    <script type="text/javascript" src="external/jquery-2.1.3.min.js"></script>
+    <script type="text/javascript" src="external/jquery-ui-1.11.3.min.js"></script>
+    <script type="text/javascript" src="external/math-1.5.2.min.js"></script> <!-- TODO: This has a license, do we comply with it?-->
     <script type="text/javascript" src="external/jquery.ui.touch-punch.min.js"></script>
     <script type="text/javascript" src="external/jcanvas.min.js"></script>
     <script type="text/javascript" src="external/jquery.flot.min.js"></script>
@@ -23,34 +25,85 @@
     <script type="text/javascript" src='external/spectrum/spectrum.js'></script>
     <!--<script type="text/javascript" src="external/UndoManager.js"></script-->
 
-    <!--The entry point for the application is in lecture_controller.js-->
+    <!--The entry point for the application is in main.js-->
     <script type="text/javascript" src="compatibility.js"></script>
 
+    <script type="text/javascript" src="accessor.js"></script>
+    <script type="text/javascript" src="getter.js"></script>
+    <script type="text/javascript" src="event_manager.js"></script>
     <script type="text/javascript" src="undo/undo.js"></script>
     <script type="text/javascript" src="undo/errors.js"></script>
     <script type="text/javascript" src="undo/helpers_and_globals.js"></script>
 
     <script type="text/javascript" src="time/TimeManager.js"></script>
     <script type="text/javascript" src="recording/recording_controller.js"></script>
+    <script type="text/javascript" src="recording/recording_view.js"></script>
+    <script type="text/javascript" src="recording/recording_event_manager.js"></script>
+    <script type="text/javascript" src="playback_controller.js"></script>
+    <script type="text/javascript" src="playback_view.js"></script>
 
+    <script type="text/javascript" src="renderer.js"></script>
     <script type="text/javascript" src="lecture_controller.js"></script>
     <script type="text/javascript" src="lecture_model.js"></script>
+    <script type="text/javascript" src="lecture_view.js"></script>
     <script type="text/javascript" src="time_controller.js"></script>
+    <script type="text/javascript" src="time_model.js"></script>
+    <script type="text/javascript" src="time_view.js"></script>
+    <script type="text/javascript" src="timeline.js"></script>    
+    <script type="text/javascript" src="timeline_event_manager.js"></script>
 
+    <script type="text/javascript" src="visuals/stroke_visual.js"></script>
+    <script type="text/javascript" src="visuals/properties.js"></script>
+    <script type="text/javascript" src="visuals/visual.js"></script>
+    <script type="text/javascript" src="visuals/transform_container.js"></script>
+    <script type="text/javascript" src="visuals/spatial_transform.js"></script>
+    <script type="text/javascript" src="visuals/vertex.js"></script>
+    <script type="text/javascript" src="visuals/slide.js"></script>
     <script type="text/javascript" src="visuals/visuals_model.js"></script>
     <script type="text/javascript" src="visuals/visuals_controller.js"></script>
-    <script type="text/javascript" src="visuals/tools_controller.js"></script>
-    <script type="text/javascript" src="visuals/renderer.js"></script>
+    <script type="text/javascript" src="visuals/visuals_view.js"></script>
+    <script type="text/javascript" src="visuals/actions_event_manager.js"></script>
+    <script type="text/javascript" src="visuals/tool.js"></script>
+    <script type="text/javascript" src="visuals/pen.js"></script>
+    <script type="text/javascript" src="visuals/select.js"></script>
+    <script type="text/javascript" src="visuals/pointer_event_manager.js"></script>
 
+    <script type="text/javascript" src="audio/track.js"></script>
+    <script type="text/javascript" src="audio/segment.js"></script>
     <script type="text/javascript" src="audio/audio_model.js"></script>
     <script type="text/javascript" src="audio/segment_controller.js"></script>
+    <script type="text/javascript" src="audio/segment_view.js"></script>
+    <script type="text/javascript" src="audio/segment_selection_controller.js"></script>
     <script type="text/javascript" src="audio/track_controller.js"></script>
+    <script type="text/javascript" src="audio/track_event_manager.js"></script>
+    <script type="text/javascript" src="audio/track_view.js"></script>
     <script type="text/javascript" src="audio/audio_controller.js"></script>
+    <script type="text/javascript" src="audio/audio_event_manager.js"></script>    
+    <script type="text/javascript" src="audio/audio_model.js"></script>
+    <script type="text/javascript" src="audio/audio_view.js"></script>
 
+    <script type="text/javascript" src="retimer/constraint.js"></script>
+    <script type="text/javascript" src="retimer/constraint_controller.js"></script>
+    <script type="text/javascript" src="retimer/constraint_view.js"></script>
+    <script type="text/javascript" src="retimer/constraint_event_manager.js"></script>
+    <script type="text/javascript" src="retimer/retimer_event_manager.js"></script>
+    <script type="text/javascript" src="retimer/retimer_selection.js"></script>
     <script type="text/javascript" src="retimer/retimer_model.js"></script>
     <script type="text/javascript" src="retimer/retimer_controller.js"></script>
+    <script type="text/javascript" src="retimer/retimer_view.js"></script>
     <script type="text/javascript" src="retimer/thumbnails_controller.js"></script>
+    <script type="text/javascript" src="retimer/thumbnails_model.js"></script>
+    <script type="text/javascript" src="retimer/thumbnails_view.js"></script>
+    <script type="text/javascript" src="retimer/thumbnail.js"></script>
+    <script type="text/javascript" src="retimer/thumbnail_controller.js"></script>
+    <script type="text/javascript" src="retimer/thumbnail_view.js"></script>
     <!--The entry point for the application is in lecture_controller.js-->
+
+    <script type="text/javascript" src="visuals/selection.js"></script>
+    <script type="text/javascript" src="visuals/selection_controller.js"></script>
+
+    <script type="text/javascript" src="time/TimeManager.js"></script>
+    <script type="text/javascript" src="main.js"></script>
 </head>
 
 <body>
@@ -61,20 +114,12 @@
             <label class="ui-heading" id="lecture-tools-heading">Lecture Tools</label><br>
             <hr width="80%">
 
-            <input id="startRecord" type="image" src="icons/media_record.png" class="lecture-tool">
-            <input id="stopRecord" type="image" src="icons/media_playback_stop.png" class="lecture-tool"><br>
-
-            <input type="checkbox" id="visuals_checkbox" checked><span class="ui-label">Visuals</span><br>
-            <input type="checkbox" id="audio_checkbox" checked><span class="ui-label">Audio</span><br>
-
-            <input id="startPlayback" type="image" src="icons/media_playback_start.png" class="lecture-tool">
-            <input id="stopPlayback" type="image" src="icons/pause.png" class="lecture-tool"><br>
+            <div id="playback" class="lecture-tool"></div>
+	    <br>
             
-            <input id="undo" type="image" src="icons/undo.png" class="lecture-tool">
-            <input id="undo_inactive" type="image" src="icons/undo-inactive.png" class="lecture-tool hidden" disabled="true">
-
-            <input id="redo" type="image" src="icons/redo.png" class="lecture-tool">
-            <input id="redo_inactive" type="image" src="icons/redo-inactive.png" class="lecture-tool hidden" disabled="true"><br>
+            <div id="undo" class="lecture-tool"></div>
+            <div id="redo" class="lecture-tool"></div>
+	    <br>
 
             <input id="save" type="image" src="icons/save.png" class="lecture-tool"><br>
             
@@ -83,12 +128,12 @@
                 <span><img src="icons/open.png" class="lecture-tool"></span>
             </label><br>
 
-            <button id="help_button" class="lecture_button audio_button btn btn-primary">
+            <button id="help-button" class="lecture_button audio-button btn btn-primary">
                 Help
             </button><br>
 
             <!-- The help dialog is hidden until the help butotn is pressed -->
-            <div id="help_dialog">
+            <div id="help-dialog">
                 <p> Vertical arrows are constraints between audio and visual time. Drag origin ellipses to change audio time. Drag arrowheds to change corresponding visual time. </p>
                 <p> Blue lines are boundaries of audio segments. Top is beginning, bottom is end. Drag to trim the segment and change when it starts or ends. </p>
                 <p> Select a time interval and delete its audio with the delete key. To delete both audio and visuals, use command delete. </p>
@@ -104,7 +149,7 @@
             <div id="sketchpadWrap">
                 <canvas id="sketchpad"></canvas>
                 <div id="sketchpadOverlay">
-                    <div id="selectionBox"></div>
+                    <div id="selectionBox"><div id="selection-scale"></div></div>
                 </div>
             </div>
 
@@ -115,20 +160,20 @@
                 </div>
                 <hr width="80%">
 
-                <input type="image" src="icons/selection.png" class="visuals-tool" data-toolname="select"><br>
+                <input id="select" type="image" src="icons/selection.png" class="visuals-tool"><br>
                 <label class="ui-label">Select</label><br>
 
-                <input type="image" src="icons/feather-2.png" class="visuals-tool" data-toolname="pen"><br>
+                <input id="pen" type="image" src="icons/feather-2.png" class="visuals-tool"><br>
                 <label class="ui-label">Pen</label><br>
 
-                <input type="image" src="icons/highlighter.png" class="visuals-tool" data-toolname="highlight"><br>
+                <input id="highlighter" type="image" src="icons/highlighter.png" class="visuals-tool"><br>
                 <label class="ui-label">Highlighter</label><br>
 
-                <input type='text' class="visuals-tool" data-toolname="color" /><br>
+                <input id="change-color" type='text' class="property-change" /><br>
                 <label class="ui-label">Select Color</label><br>
 
-                <img src="icons/width.png" class="visuals-tool" disabled="true"><br>
-                <select class="visuals-tool" data-toolname="width">
+                <img src="icons/width.png" class="property-change" disabled="true"><br>
+                <select id="change-width" class="property-change">
                     <option value="2">2</option>
                     <option value="4">4</option>
                     <option value="6">6</option>
@@ -142,10 +187,10 @@
                 </select><br>
                 <label class="ui-label">Stroke Width</label><br>
 
-                <input type="image" src="icons/delete-visuals.png" class="visuals-tool" data-toolname="delete"><br>
+                <input id="delete-visuals" type="image" src="icons/delete-visuals.png" class="visuals-action"><br>
                 <label class="ui-label">Delete Visual</label><br>
 
-                <input type="image" src="icons/pageDown.png" class="visuals-tool" data-toolname="add-slide"><br>
+                <input id="add-slide" type="image" src="icons/pageDown.png" class="visuals-action"><br>
                 <label class="ui-label">Add Slide</label><br>
             </div>
 
@@ -155,20 +200,20 @@
 
                 <hr width="80%">
 
-                <input type="image" src="icons/selection.png" class="visuals-tool" data-toolname="select"><br>
+                <input id="select" type="image" src="icons/selection.png" class="visuals-tool"><br>
                 <label class="ui-label">Select</label><br>
 
-                <input type="image" src="icons/delete-visuals.png" class="visuals-tool" data-toolname="delete"><br>
+                <input id="delete-visuals" type="image" src="icons/delete-visuals.png" class="visuals-action"><br>
                 <label class="ui-label">Delete Visual</label><br>
 
-                <input type="image" src="icons/pen.png" class="visuals-tool" data-toolname="redraw"><br>
+                <input id="redraw" type="image" src="icons/pen.png" class="visuals-tool"><br>
                 <label class="ui-label">Redraw Selection</label><br>
 
-                <input type='text' class="visuals-tool" data-toolname="color" /><br>
+                <input id="change-color" type='text' class="property-change" /><br>
                 <label class="ui-label">Select Color</label><br>
 
-                <img src="icons/width.png" class="visuals-tool" disabled="true"><br>
-                <select class="visuals-tool" data-toolname="width" >
+                <img src="icons/width.png" class="property-change" disabled="true"><br>
+                <select id="change-width" class="property-change" >
                     <option value="2">2</option>
                     <option value="4">4</option>
                     <option value="6">6</option>
@@ -182,10 +227,10 @@
                 </select><br>
                 <label class="ui-label">Stroke Width</label><br>
 
-                <input type="image" src="icons/trashPage.png" class="visuals-tool" data-toolname="delete-slide"><br>
+                <input id="delete-slide" type="image" src="icons/trashPage.png" class="visuals-action"><br>
                 <label class="ui-label">Delete Slide</label><br>
 
-                <input type="image" src="icons/scratch.png" class="visuals-tool" data-toolname="delete"><br>
+                <input id="delete-last-recording" type="image" src="icons/scratch.png" class="visuals-action"><br>
                 <label class="ui-label">Delete Last Recording</label><br>
             </div>
 
@@ -193,43 +238,38 @@
 
     </div>
 
-    <!-- AUDIO (retimer views, thumbnail and constraints, are displayed as plugins in the audio timeline) -->
-    <div id="audio_container">
-        <div id="audio_timeline"></div>
-        <br>
+    <!--TIMELINE-->
+    <div id="timeline">
+      <div id="playhead"></div>
+      <div id="gradations"></div>
+      <div id="gradations-overlay">
+	<div id="thumbnails"></div>
+	<canvas id="constraints"></canvas>
+	<div id="audio-tracks" class="audio-tracks-container"></div>
+      </div>
     </div>
 
     <!--RETIMER controls-->
     <div id="retimer-audio_controls_container">
 
-        <div id="audio_controls" class="retimer_controls center_buttons">
-            <input type="button" value="Zoom In" id="zoom_in_button" class="retiming_button audio_button">
-        <!--     <button id="zoom_in_button" class="retiming_button audio_button btn btn-primary">
-                Zoom In
-            </button> -->
-            <button id="zoom_out_button" class="retiming_button audio_button btn btn-primary">
+      <div id="audio-controls" class="retimer_controls center-buttons">
+	<div id="timeline-controls" style="display:inline-block;">
+            <input type="button" value="Zoom In" id="zoom-in-button" class="retiming_button audio-button">
+            <button id="zoom-out-button" class="retiming_button audio-button btn btn-primary">
                 Zoom Out
             </button>
-            <button id="delete_segment_button" class="retiming_button audio_button btn btn-primary">
+	</div>
+            <button id="delete_segment_button" class="retiming_button audio-button btn btn-primary">
                 Delete segment
             </button>
-            <button id="insert_track_button" class="retiming_button audio_button btn btn-primary">
+            <button id="insert_track_button" class="retiming_button audio-button btn btn-primary">
                 Insert track
             </button>
-            <button id="delete_track_button" class="retiming_button audio_button btn btn-primary">
+            <button id="delete_track_button" class="retiming_button audio-button btn btn-primary">
                 Delete track
             </button>
             <label>Current track:</track>
             <select id="track_select"></select>
-        </div>
-
-        <div id="retiming_controls" class="retimer_controls">
-            <!-- <input type="image" src="icons/beginLink.png" id="sync_start" class="retiming_button">
-            <input type="image" src="icons/endLink.png" id="sync_end" class="retiming_button"> -->
-            <input type="image" src="icons/link.png" id="sync" class="retiming_button">
-            <input type="image" src="icons/trashLink.png" id="delete_sync" class="retiming_button">
-            <input type="image" src="icons/recordAudio.png" id="retimer_record_Audio" class="retiming_button">
-            <!-- <input type="image" src="icons/trashLink.png" id="reset_all_syncs" class="retiming_button"> -->
         </div>
     </div>
 

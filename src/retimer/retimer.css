@@ -1,18 +1,30 @@
-#timer_div {
-    height: 15px;
-    margin-bottom: 30px;
-}
-
 #retimer-audio_controls_container {
     margin: 0;
     padding: 0;
 }
 
-.retimer_controls{
+#retimer-controls {
     border: 1px solid #000000;
     display: inline-block;
     padding: 3px;
-    margin-bottom: 3px;
+    margin: 3px;
+}
+
+#retimer-controls div {
+    display: inline-block;
+    height: 40px;
+    width: 40px;
+    background-repeat: no-repeat;
+    background-position: center center;
+    background-size: auto 100%;
+}
+
+#add-constraint {
+    background-image: url("../icons/link.png");
+}
+
+#delete-constraints {
+    background-image: url("../icons/trashLink.png");
 }
 
 /*Images have extra padding added if inline-block display
@@ -25,23 +37,13 @@ need to adjust the vertical-align property to fix*/
     height: 40px;
 }
 
-canvas.thumbnail {
-    box-sizing:border-box;
-    -moz-box-sizing:border-box;
-    -webkit-box-sizing:border-box;
-    border: 1px solid black;
-    margin: 0;
-    padding: 0;
-}
-
 #constraints {
-    position: absolute;
     top: 0;
     left: 0;
     box-sizing:border-box;
     -moz-box-sizing:border-box;
     -webkit-box-sizing:border-box;
     border: 1px solid black;
-    margin: 0;
+    margin-top: 5px;
     padding: 0;
 };

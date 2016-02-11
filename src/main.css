@@ -44,8 +44,12 @@ button {
 }
 
 .lecture-tool {
-    max-height: 35px;
+    display: inline-block;
+    height: 35px;
+    width: 35px;
     margin-top:7px;
+    background: no-repeat center center;
+    background-size: auto 100%;
 }
 
 
@@ -62,4 +66,28 @@ label.open-file input[type="file"] {
 #ticker {
     margin-top: 7px;
     text-align: center
-};
+}
+
+#redo {
+    background-image: url("icons/redo.png");
+}
+
+#redo.disabled {    
+    background-image: url("icons/redo-inactive.png");
+}
+
+#undo {
+    background-image: url("icons/undo.png");
+}
+
+#undo.disabled {
+    background-image: url("icons/undo-inactive.png");
+}
+
+#playback {
+    background-image: url("icons/media_playback_start.png");
+}
+
+#playback.in-progress {
+    background-image: url("icons/pause.png");
+}
