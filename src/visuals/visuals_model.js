@@ -621,6 +621,10 @@ var Visual = function(tmin, props) {
                 old_value = properties.getWidth();
                 properties.setWidth(new_value);
                 break;
+            case 'strokeType':
+                old_value = properties.getStrokeType();
+                properties.setStrokeType(new_value);
+                break;
             default:
                 console.error('invalid property name: ' + property_name);
                 return;
@@ -678,7 +682,7 @@ var Visual = function(tmin, props) {
     // Returns the properties at the given time (non-interpolated)
     this.getPropertiesAtTime = function(time) {
         
-        var result = new VisualProperty(properties.getColor(), properties.getWidth());
+        var result = new VisualProperty(properties.getColor(), properties.getWidth(), properties.getStrokeType());
 
         // Apply all property transforms until time.
         for (var i = 0; i < propertyTransforms.length; i++) {
@@ -691,6 +695,9 @@ var Visual = function(tmin, props) {
                         break;
                     case VisualPropertyTransform.propertyNames.width:
                         result.setWidth(propertyTransform.getValue());
+                        break;
+                    case VisualPropertyTransform.propertyNames.strokeType:
+                        result.setStrokeType(propertyTransform.getValue());
                         break;
                 }
             } else {
@@ -860,10 +867,11 @@ StrokeVisual.loadFromJSON = function(json_object) {
 // Visual properties and transforms
 ///////////////////////////////////////////////////////////////////////////////
 
-var VisualProperty = function(c, w) {
+var VisualProperty = function(c, w, st) {
     var self = this;
     var color = c;
     var width = w;
+    var strokeType = st;
 
     this.getColor = function() { return color; }
     this.setColor = function(newColor) {
@@ -877,19 +885,27 @@ var VisualProperty = function(c, w) {
 	undoManager.add(function() { self.setWidth(oldWidth); });
 	width = newWidth;
     };
+    this.getStrokeType = function() { return strokeType; }
+    this.setStrokeType  = function(newStrokeType) {
+    var oldStrokeType = strokeType;
+    undoManager.add(function() { self.setStrokeType(strokeType); });
+    strokeType = newStrokeType;
+    };
+    
 
     // Saving the model to JSON
     this.saveToJSON = function() {
         var json_object = {
             c: color,
-            w: width
+            w: width,
+            st: strokeType
         };
 
         return json_object;
     };
 };
 VisualProperty.loadFromJSON = function(json_object) {
-    return new VisualProperty(json_object.c, json_object.w);
+    return new VisualProperty(json_object.c, json_object.w, json_object.st);
 };
 
 var VisualPropertyTransform = function(property_name, new_val, time) {
@@ -921,7 +937,8 @@ VisualPropertyTransform.loadFromJSON = function(json_object) {
 };
 VisualPropertyTransform.propertyNames = { 
     color: 'color', 
-    width: 'width'
+    width: 'width',
+    strokeType: 'strokeType'
 };
 
 

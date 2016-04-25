@@ -18,6 +18,7 @@ var ToolsController = function(visuals_controller) {
     // Pen attributes
     var strokeColor = '#777';
     var strokeWidth = 2;
+    var strokeType = 'calligraphic';
 
     // Keep track of original dimensions during a transform
     var originalTranslatePosition;  // { left, top }
@@ -49,6 +50,7 @@ var ToolsController = function(visuals_controller) {
     var redrawTool = 'redraw';
     var deleteSlideTool = 'delete-slide'; 
     var colorTool = 'color';
+    var strokeTypeTool = 'strokeType';
 
     // Box used showing selection area
     var selectionBoxID = 'selectionBox';
@@ -158,6 +160,10 @@ var ToolsController = function(visuals_controller) {
                 // Do nothing. Color is handled by colorChanged() and registered to another function.
                 break;
 
+            case strokeTypeTool:
+                // Do nothing. Color is handled by strokeTypeChanged() and registered to another function.
+                break;
+
         	case deleteTool:
                 if (lectureController.isRecording()) {
                     visualsController.recordingDeleteSelection();
@@ -237,7 +243,7 @@ var ToolsController = function(visuals_controller) {
         if(isNaN(event.pageX)){
             var touches = event.originalEvent.changedTouches;
 
-            visualsController.currentVisual = new StrokeVisual(visualsController.currentVisualTime(), new VisualProperty(strokeColor, strokeWidth));
+            visualsController.currentVisual = new StrokeVisual(visualsController.currentVisualTime(), new VisualProperty(strokeColor, strokeWidth, strokeType));
             
             for (var i=0; i < touches.length; i++) {
                 visualsController.currentVisual.getVertices().push(getTouchPoint(touches[i].pageX, touches[i].pageY));
@@ -245,7 +251,7 @@ var ToolsController = function(visuals_controller) {
         }
         else{
             // Create a new stroke visual and set it to the current visual
-            visualsController.currentVisual = new StrokeVisual(visualsController.currentVisualTime(), new VisualProperty(strokeColor, strokeWidth));
+            visualsController.currentVisual = new StrokeVisual(visualsController.currentVisualTime(), new VisualProperty(strokeColor, strokeWidth, strokeType));
             visualsController.currentVisual.getVertices().push(getCanvasPoint(event));
         }
 
@@ -497,6 +503,29 @@ var ToolsController = function(visuals_controller) {
         activateCanvasTool();
     };
 
+    var strokeTypeChanged = function(new_strokeType) {
+
+        console.log("new_strokeType: "+new_strokeType);
+
+        // Change the strokeType of the drawing tool
+        strokeType = new_strokeType;
+
+        // Changes the strokeType of the selection if there is a selection
+        if (visualsController.selection.length !== 0) {
+
+            if (lectureController.isRecording()) {
+                var transform = new VisualPropertyTransform('strokeType', new_strokeType, visualsController.currentVisualTime());
+                visualsController.recordingPropertyTransformSelection(transform);
+
+            } else {
+                visualsController.editingPropertyTransformSelection('strokeType', new_strokeType);
+            };
+        }
+
+        // Reset the tool state (clears selection rectangle)
+        activateCanvasTool();
+    };
+
     var colorChanged = function(new_spectrum_color) {
 
         // Change the color of the drawing tool
@@ -672,6 +701,13 @@ var ToolsController = function(visuals_controller) {
         var new_width = parseInt(event.target.value);
         widthChanged(new_width);
     });
+
+    // Setup the strokeType tool
+    $("["+toolNameAttr+"='"+strokeTypeTool+"']").change(function(event) {
+        var new_strokeType = event.target.value;
+        strokeTypeChanged(new_strokeType);
+    });
+
 
     // Setup the color tool
     $("["+toolNameAttr+"='"+colorTool+"']").spectrum({

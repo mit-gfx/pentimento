@@ -90,6 +90,9 @@ var Renderer = function(visuals_controller) {
         
         var defaultProperties = visual.getPropertiesAtTime(tVisual);
 
+        // console.log('defaultProperties: '+ defaultProperties.getStrokeType());
+        // console.log('alternateStrokeType: '+ alternateStrokeType);
+
         if (typeof alternateColor === 'undefined' ) {
             alternateColor = defaultProperties.getColor();
         };
@@ -99,7 +102,7 @@ var Renderer = function(visuals_controller) {
         };
 
         if (typeof alternateStrokeType === 'undefined' ) {
-            alternateStrokeType= true;
+            alternateStrokeType= defaultProperties.getStrokeType();
         };
 
         switch(visual.getType()) {
@@ -119,7 +122,7 @@ var Renderer = function(visuals_controller) {
         }
     };
 
-    var renderStroke = function(context, visual, tVisual, renderColor, renderWidth, isNonCalligraphic) {
+    var renderStroke = function(context, visual, tVisual, renderColor, renderWidth, renderType) {
         var calligraphic_path = [];
         var vertsIter = visual.getVerticesIterator();
         var prev, curr;
@@ -154,10 +157,10 @@ var Renderer = function(visuals_controller) {
             ctx.fillStyle = renderColor;
             ctx.lineWidth = 1;
             ctx.lineCap = 'round';
-            if (isNonCalligraphic) {
-                drawNonCalligraphicPath(0, calligraphic_path, ctx);     
-            } else {
+            if (renderType=='calligraphic') {
                 drawCalligraphicPath(0, calligraphic_path, false, ctx);
+            } else {
+                drawNonCalligraphicPath(0, calligraphic_path, ctx);     
             }
         }
     };
