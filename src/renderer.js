@@ -63,14 +63,13 @@ var Renderer = function(lecture) {
         context.fillStyle = color;
         context.lineWidth = 1;
         context.lineCap = 'round';
-	renderStroke(visual, context, t_vis, color, props.width.get(), 'noncalligraphic');
+	renderStroke(visual, context, t_vis, color, props.width.get(), props.type.get());
 	if (transformed) {
 	    context.restore();
 	}
     };
 
     var renderStroke = function(stroke, context, t_vis, color, width, type) {
-        console.log('type:'+ type);
         var path = [];
         var verts_iter = stroke.vertices.iterator();
         var prev, curr;

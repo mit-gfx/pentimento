@@ -1,5 +1,5 @@
 "use strict";
-var VisualProperties = function(c, w) {
+var VisualProperties = function(c, w, st) {
     var validateWidth = function(new_w){
 	if (isNaN(parseFloat(new_w))) {	    
 	    throw Error("Can't cast width to a number");
@@ -12,6 +12,8 @@ var VisualProperties = function(c, w) {
     self.color = Accessor(c);
     self.width = Accessor(parseFloat(w));
     self.width.setValidation(validateWidth);
+    // TODO: look into accessor and stroke type
+    self.type = Accessor(st);
 
     // Modify width.set to convert its new value to a number
     self.width.defaultSet = self.width.set;
@@ -22,7 +24,8 @@ var VisualProperties = function(c, w) {
     self.saveToJSON = function() {
         var json_object = {
             c: self.color.get(),
-            w: self.width.get()
+            w: self.width.get(),
+            st: self.type.get()
         };
 
         return json_object;
@@ -31,7 +34,7 @@ var VisualProperties = function(c, w) {
     return self;
 };
 VisualProperties.loadFromJSON = function(json_object) {
-    return VisualProperties(json_object.c, json_object.w);
+    return VisualProperties(json_object.c, json_object.w, json_object.st);
 };
 
 var VisualPropertyTransform = function(property_name, val, time) {

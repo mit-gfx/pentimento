@@ -7,7 +7,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 var Slide = function(t_min) {
     // Transformation functionality is built into the Visual class.
-    var self = Visual(t_min, VisualProperties("#000", 0)); // dummy props
+    var self = Visual(t_min, VisualProperties("#000", 0, "calligraphic")); // dummy props
     self.visuals = Accessor([]);    
     self.duration = Accessor(0);
     

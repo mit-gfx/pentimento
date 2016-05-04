@@ -20,7 +20,8 @@ var ActionsEventManager = function(lecture) {
     var CHANGE_VALUE_CLASS = "property-change";
     var PROPERTY_NAMES = {
 	change_width: "width",
-	change_color: "color"
+	change_color: "color",
+    change_type: "type"
     };
 
     var dashesToUnderscores = function(str) {
@@ -34,7 +35,6 @@ var ActionsEventManager = function(lecture) {
     $("." + CHANGE_VALUE_CLASS).change(function(e) {
 	var action = dashesToUnderscores($(this).attr("id"));
 	var val = $(this).val();
-	console.log(action);
 	self.fireEvent(self.EVENT_TYPES.property_change,
 		  {value: val, name: PROPERTY_NAMES[action]});
     });

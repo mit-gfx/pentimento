@@ -23,7 +23,8 @@ var Visual = function(tmin, props) {
     // Returns the properties at the given time (non-interpolated)
     self.getPropertiesAtTime = function(time) {
         var result = new VisualProperties(self.properties.color.get(),
-	    self.properties.width.get());
+	    self.properties.width.get(),
+        self.properties.type.get());
 
 	var iter = self.property_transforms.iterator();
 	while (iter.hasNext()) {
