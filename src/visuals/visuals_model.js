@@ -6,12 +6,14 @@ var VisualsModel = function(lecture) {
     // TODO: get initial props from ui?
     self.current_props = {	
 	color: Accessor("#000"),
-	width: Accessor(2)
+	width: Accessor(2),
+	type: Accessor("calligraphic")
     };
 
     self.getPropertiesInstance = function() {
 	return VisualProperties(self.current_props.color.get(),
-				self.current_props.width.get());
+				self.current_props.width.get(),
+				self.current_props.type.get());
     };
 
     self.selection = VisualsSelection(self, lecture);

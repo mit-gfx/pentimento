@@ -63,16 +63,14 @@ var Renderer = function(lecture) {
         context.fillStyle = color;
         context.lineWidth = 1;
         context.lineCap = 'round';
-	renderCalligraphicStroke(visual, context, t_vis, color,
-				 props.width.get());
+	renderStroke(visual, context, t_vis, color, props.width.get(), props.type.get());
 	if (transformed) {
 	    context.restore();
 	}
     };
 
-    var renderCalligraphicStroke = function(stroke, context, t_vis, color,
-					    width) {
-        var calligraphic_path = [];
+    var renderStroke = function(stroke, context, t_vis, color, width, type) {
+        var path = [];
         var verts_iter = stroke.vertices.iterator();
         var prev, curr;
         var old_direction;
@@ -90,7 +88,7 @@ var Renderer = function(lecture) {
                         breaking = true;
 		}
                 old_direction = new_direction;
-                calligraphic_path.push([prev.x.get(), prev.y.get(), width,
+                path.push([prev.x.get(), prev.y.get(), width,
 					breaking]);
             }
             prev = curr;
@@ -98,16 +96,21 @@ var Renderer = function(lecture) {
 
 	// Add the last point
         if (curr && t_vis >= curr.t.get()) {
-            calligraphic_path.push([curr.x.get(), curr.y.get(), width, false]);
+            path.push([curr.x.get(), curr.y.get(), width, false]);
 	}
 
-        if (calligraphic_path.length > 0) {
+        if (path.length > 0) {
             context.globalAlpha = 1.0;
             context.strokeStyle = color;
             context.fillStyle = color;
             context.lineWidth = 1;
             context.lineCap = 'round';
-            drawCalligraphicPath(0, calligraphic_path, false, context);
+            if (type === 'calligraphic') {
+                drawCalligraphicPath(0, path, false, context);
+            } else {
+                drawNonCalligraphicPath(0, path, context);
+            }
+            
         }
     };
 
@@ -155,6 +158,72 @@ var Renderer = function(lecture) {
             context.stroke();
             context.fill();
         }
+    };
+
+    //Draw noncalligraphic strokes
+    var drawNonCalligraphicPath = function(startIndex, path, context) {
+ 
+        var point = path[startIndex];
+
+        context.beginPath();
+        context.arc(point[0], point[1], point[2]/2, 0, Math.PI*2, false); 
+        context.fill();
+
+        context.beginPath();
+
+        //get the normal between point and next point
+        var nextPoint = path[startIndex+1];
+        var dx = point[0]-nextPoint[0];
+        var dy = point[1]-nextPoint[1];
+        var normal_x = -dy/Math.sqrt(dy*dy+dx*dx);
+        var normal_y = dx/Math.sqrt(dy*dy+dx*dx);
+        var endIndex = path.length-1;
+       
+        //start at point+normal*width/2
+        context.moveTo(point[0]+(normal_x*point[2]/2),point[1]+(normal_y*point[2]/2));
+
+        //draw lines to the left of all points
+        for(var i=startIndex+1; i<endIndex; i++) {
+            point = path[i];
+            nextPoint = path[i+1];
+            dx = point[0]-nextPoint[0];
+            dy = point[1]-nextPoint[1];
+            normal_x = -dy/Math.sqrt(dy*dy+dx*dx);
+            normal_y = dx/Math.sqrt(dy*dy+dx*dx);
+           
+            context.lineTo(point[0]+(normal_x*point[2]/2),point[1]+(normal_y*point[2]/2));
+        }
+
+        //draw lines to the right of all points
+        for(var i=endIndex; i>startIndex; i--) {
+            point = path[i];
+            nextPoint = path[i-1];
+            dx = point[0]-nextPoint[0];
+            dy = point[1]-nextPoint[1];
+            normal_x = dy/Math.sqrt(dy*dy+dx*dx);
+            normal_y = -dx/Math.sqrt(dy*dy+dx*dx);
+           
+            context.lineTo(point[0]-(normal_x*point[2]/2),point[1]-(normal_y*point[2]/2));
+        }
+
+        //find the normal for the start point
+        point = path[startIndex];
+        nextPoint = path[startIndex+1];
+        dx = point[0]-nextPoint[0];
+        dy = point[1]-nextPoint[1];
+        normal_x = -dy/Math.sqrt(dy*dy+dx*dx);
+        normal_y = dx/Math.sqrt(dy*dy+dx*dx);
+
+        //connect the polygone to the start point
+        context.moveTo(point[0]+(normal_x*point[2]/2),point[1]+(normal_y*point[2]/2));
+        //fill the polygone
+        context.stroke();
+        context.fill();
+
+        context.beginPath();
+        point = path[endIndex];
+        context.arc(point[0], point[1], point[2]/2, 0, Math.PI*2, true); 
+        context.fill();
     };
 
     return self;
