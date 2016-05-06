@@ -87,6 +87,7 @@ var AudioSegment = function(audio_url, audio_length, start_time0,
         return json_object;
     };
 
+    return self;
 };
 
 AudioSegment.loadFromJSON = function(json_object) {
