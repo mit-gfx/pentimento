@@ -1,7 +1,5 @@
 //TODO: What if we could generalize the saveToJSON methods to just be attached here?
 
-//TODO: create a way to add a validation function to the setters. If the validation function returns true, the value is set. 
-
 var copyValue = function(x) {
     switch (x.constructor) {
     case Array:
@@ -32,12 +30,9 @@ var saveArrayJSON = function(array_accessor, input) {
     return out;
 };
     
-
-var Accessor = function(initial_val, write_protected, password) {
+var Accessor = function(initial_val) {
+    var self = EventManager().initializeEvents({generic: "generic"});
     var value = initial_val;
-    var self = {};
-
-    // Read methods
     
     self.get = function() { return copyValue(value); };
 
@@ -51,8 +46,34 @@ var Accessor = function(initial_val, write_protected, password) {
 	    return copyValue(value[key]);
 	};
     }
+   
+    var validate = function() { return true; };
 
+    self.setValidation = function(validate_func) {
+	validate = validate_func;
+    };
+
+    self.set = function(new_value) {
+	if (!validate(new_value)) { return false; }
+	var old_value = copyValue(value);
+	undoManager.add(function() { self.set(old_value); });
+	value = new_value;
+	self.fireEvent(self.EVENT_TYPES.generic, value);
+    };
+
+
+    // Other functions that are based on what data-type value is.
     switch (value.constructor) {
+    case Number:
+
+	self.increment = function(operand) {
+	    if (!validate(value + operand)) { return false; }
+	    value += operand;
+	    self.fireEvent(self.EVENT_TYPES.generic, value);
+	    return value;
+	};
+	
+	break;
     case Array:
 
 	self.iterator = function() {
@@ -67,164 +88,57 @@ var Accessor = function(initial_val, write_protected, password) {
 		}
 	    };
 	};
-	
-	self.reverse_iterator = function() {
-	    var index = value.length;
-	    return {
-		hasNext: function() { return index > 0; },
-		next: function() {
-		    if (this.hasNext()) {
-			index--;
-			return value[index];
-		    }
-		}
-	    };
-	};
-	
+
 	self.indexOf = function(entry) {
 	    return value.indexOf(entry);
 	};
 
 	self.valueAt = function(index) {
 	    return value[index];
-	}
+	};
 
 	self.getLength = function() {
 	    return value.length;
-	}
-	
-	break;
-    default:
-	break;
-    }
-
-    if (write_protected && password == null) {
-	return self; // Read_only, return now so write methods aren't added
-    }
-
-    // Event Listeners
-
-    var listeners = [];
-    var events_disabled = false;
-
-    self.addEventListener = function(callback) {
-	listeners.push(callback);
-    };
-
-    self.removeEventListener = function(callback) {
-	var index = listeners.indexOf(callback);
-	if (index < 0) {
-	    throw Error("Accessor.removeEventListener: listener is not attached");
-	}
-	listeners.splice(index, 1);
-    };
-    
-    var fireEvent = function(val) {
-	if (events_disabled) {
-	    return;
-	}
-	for (var i = 0; i < listeners.length; i++) {
-	    try {
-		listeners[i](val);
-	    } catch (e) {
-		// Show the error, but continue with the other listeners
-		console.error(e.stack);
-	    }
-	}
-    };
-
-    self.triggerEvent = function(val) {
-	fireEvent(val);
-    };
-
-    var write_function_names = [];
-    
-    self.disableEvents = function() {
-	events_disabled = true;
-    };
-    write_function_names.push("disableEvents");
-
-    self.enableEvents = function() {
-	events_disabled = false;
-    };
-    write_function_names.push("enableEvents");
-    
-
-
-    var validate = function() { return true; };
-
-    self.setValidation = function(validate_func) {
-	validate = validate_func;
-    };
-
-    // Write methods
-    
-    self.set = function(new_value) {
-	if (!validate(new_value)) { return false; }
-	var old_value = copyValue(value);
-	undoManager.add(function() { self.set(old_value); });
-	value = new_value;
-	fireEvent(value);
-    };
-    write_function_names.push("set");
-
-    switch (value.constructor) {
-    case Number:
-
-	self.increment = function(operand) {
-	    if (!validate(value + operand)) { return false; }
-	    value += operand;
-	    fireEvent(value);
-	    return value;
 	};
-	write_function_names.push("increment");
-	
-	break;
-    case Array:
 	
 	self.push = function(entry) {
 	    value.push(entry);
 	    undoManager.add(function() { self.removeValue(entry); });
-	    fireEvent(entry);
+	    self.fireEvent(self.EVENT_TYPES.generic, entry);
 	};
-	write_function_names.push("push");
 	
 	self.insert = function(entry, index) {
 	    value.splice(index, 0, entry);
 	    undoManager.add(function() { self.removeIndex(index); });
-	    fireEvent(entry);
+	    self.fireEvent(self.EVENT_TYPES.generic, entry);
 	    return true;
 	};
-	write_function_names.push("insert");
 	
 	self.removeValue = function(entry) {
 	    var index = value.indexOf(entry);
 	    if (index < 0) {
-		console.error("Accessor.remove(): entry doesn't exist");
+		console.error("Can't remove value, entry doesn't exist");
 		return false;
 	    } else {
 		value.splice(index, 1);
 		undoManager.add(function() { self.push(entry); });
-		fireEvent();
+		self.fireEvent(self.EVENT_TYPES.generic);
 		return true;
 	    }
 	};
-	write_function_names.push("removeValue");
 	
 	self.removeIndex = function(index) {
 	    var removed = value.splice(index, 1);
 	    removed = removed.length > 0 ? removed[0] : null;
 	    undoManager.add(function() { self.insert(removed, index); });
-	    fireEvent();
+	    self.fireEvent(self.EVENT_TYPES.generic);
 	    return removed;
 	};
-	write_function_names.push("removeIndex");
-
+	
 	break;
     case Object:
-
-	self.set = function(new_value, key) {
-	    
+	
+	self.set = function(new_value, key) {	    
 	    if (key === undefined) {
 		var old_value = copyValue(value);
 		value = new_value;
@@ -232,35 +146,29 @@ var Accessor = function(initial_val, write_protected, password) {
 		var old_value = copyValue(value[key])
 		value[key] = new_value;
 	    }
-	    // Currently, if a new key is added, it's not removed when undone, but
-	    // set to undefined. Not an issue for now, but something to be aware of.
+	    // Currently, if a new key is added, it's not removed when undone.
+	    // It's just set to undefined. Not an issue for now, but something
+	    // to be aware of.
 	    undoManager.add(function() { self.set(old_value, key); });
-	    fireEvent();
+	    self.fireEvent(self.EVENT_TYPES.generic);
 	};
-	// "set" has already been added to write_function_names
-	
-	break;
     default:
 	break;
     }
 
-    var password_wrap = function(f) {	
-	return function() {
-	    var password_arg = arguments[arguments.length - 1];
-	    if (password_arg === password) {
-		f.apply(this, arguments);
-	    } else {
-		console.error("Write-protected, incorrect password");
-	    }
-	};
+    self.triggerEvent = function(val) {
+	self.fireEvent(self.EVENT_TYPES.generic, val);
     };
 
-    if (write_protected) {
-	for (var i = 0; i < write_function_names.length; i++) {
-	    var function_name = write_function_names[i];
-	    self[function_name] = password_wrap(self[function_name]);
-	}
-    }
+    var default_add = self.addEventListener;
+    self.addEventListener = function(listener) {
+	default_add(self.EVENT_TYPES.generic, listener);
+    };
 
+    var default_remove = self.removeEventListener;
+    self.removeEventListener = function(listener) {
+	default_remove(self.EVENT_TYPES.generic, listener);
+    };
+    
     return self;
 };

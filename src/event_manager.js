@@ -31,6 +31,18 @@ var EventManager = function() {
 	}
 	listeners[type].push(listener);
     };
+
+    self.removeEventListener = function(type, listener) {
+	if (listeners[type] == null) {
+	    throw Error("Unsupported event type: " + type);
+	}
+	var index = listeners[type].indexOf(listener);
+	if (index < 0) {
+	    throw Error("Cannot remove listener, it isn't attached.");
+	}
+	listeners[type].splice(index, 1);
+    };
+
     
     self.fireEvent = function(type, args) {
 	if (disabled) { return; }
@@ -47,11 +59,11 @@ var EventManager = function() {
 	}
     };
 
-    self.disable = function() {
+    self.disableEvents = function() {
 	disabled = true;
     };
 
-    self.enable = function() {
+    self.enableEvents = function() {
 	disabled = false;
     };
     

@@ -37,7 +37,7 @@ var VisualsController = function(lecture, visuals) {
 					  VisualsView.IDS.canvas);
     var SEL_EVENTS = sel_evt_mgr.EVENT_TYPES;
     sel_evt_mgr.addEventListener(SEL_EVENTS.pointer_down, function(e) {
-	canvas_evt_mgr.disable();
+	canvas_evt_mgr.disableEvents();
 	active_tool.start(extendEventArgs(e));
     });
     sel_evt_mgr.addEventListener(SEL_EVENTS.pointer_drag, function(e) {
@@ -45,7 +45,7 @@ var VisualsController = function(lecture, visuals) {
     });
     sel_evt_mgr.addEventListener(SEL_EVENTS.pointer_up, function(e) {
 	active_tool.stop(extendEventArgs(e));
-	canvas_evt_mgr.enable();
+	canvas_evt_mgr.enableEvents();
     });
 
     
